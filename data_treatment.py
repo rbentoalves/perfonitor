@@ -771,7 +771,7 @@ def verify_read_time_of_operation(site, day, stime, etime):
 
 # <editor-fold desc="Dataframe creation">
 
-def create_dfs(df, min_dur: int = 15, roundto: int = 15):
+def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
     """From a dataframe of a report containing all incidents from various sites, this script creates a dictionary
     (list with keys and values (ex: 'LSBP - Grants' : df_active_events_Grants) for ACTIVE and CLOSED EVENTS containing
     all sites present in the original dataframe. Independently of the number of sites in the input dataframe
@@ -783,8 +783,7 @@ def create_dfs(df, min_dur: int = 15, roundto: int = 15):
     corrected_sites = [correct_site_name(site) for site in sites]
     df['Site Name'] = corrected_sites
 
-    df_closed_all = filter_notprod_and_duration(df,
-                                                min_dur)  # creates dataframe with closed, not producing incidents with a minimum specified duration
+    df_closed_all = filter_notprod_and_duration(df, min_dur)  # creates dataframe with closed, not producing incidents with a minimum specified duration
     df_closed_all = remove_milliseconds(df_closed_all, end_time=True)  # removes milliseconds
     # append_df_to_excel('test.xlsx', df_closed_all, sheet_name='test')
 
@@ -797,7 +796,7 @@ def create_dfs(df, min_dur: int = 15, roundto: int = 15):
     # Add capacity of each component
 
     site_list, df_list_active, df_list_closed = create_df_list(df)
-
+    
     # Remove sites that need to be ignored
     for site in site_list:
         if "HV Almochuel" in site:
