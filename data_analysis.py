@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import datetime
+import perfonitor.data_treatment
 
 
 # Analysis of incidents ---------------------------------------------------------------------------------------------
@@ -260,3 +261,52 @@ def get_significance_score(df, active: bool = False):
         df_final['Significance Score (MW*d)'] = significance_score
 
     return df_final
+
+# Analysis with dataframe output
+
+def analysis_component_incidents(df_incidents_analysis, site_list, df_list_closed, df_list_active, df_info_sunlight):
+    df_incidents_analysis = data_treatment.fill_events_analysis_dataframe(df_incidents_analysis, df_info_sunlight)
+
+    for site in site_list:
+        index_site_array = df_info_sunlight[df_info_sunlight['Site'] == site].index.values
+        index_site = int(index_site_array[0])
+
+        df_closed_events = df_list_closed[site]
+        df_active_events = df_list_active[site]
+
+        # Add efect of closed events
+        df_incidents_analysis = analysis_closed_incidents(site, index_site, df_incidents_analysis,
+                                                                        df_closed_events,
+                                                                        df_info_sunlight)
+
+        # Add effect of active events
+        df_incidents_analysis = analysis_active_incidents(site, index_site, df_incidents_analysis,
+                                                                        df_active_events,
+                                                                        df_info_sunlight)
+
+    # print(df_incidents_analysis)
+    return df_incidents_analysis
+
+
+def analysis_tracker_incidents(df_tracker_analysis, df_tracker_closed, df_tracker_active, df_info_sunlight):
+    df_tracker_analysis = data_treatment.fill_events_analysis_dataframe(df_tracker_analysis, df_info_sunlight)
+
+    # Add effect of closed events
+    df_tracker_analysis = analysis_closed_tracker_incidents(df_tracker_analysis, df_tracker_closed,
+                                                                          df_info_sunlight)
+
+    # Add effect of active events
+    df_tracker_analysis = analysis_active_tracker_incidents(df_tracker_analysis, df_tracker_active,
+                                                                          df_info_sunlight)
+
+    # print(df_tracker_analysis)
+
+    return df_tracker_analysis
+
+
+# <editor-fold desc="ET Functions">
+
+
+
+# </editor-fold>
+

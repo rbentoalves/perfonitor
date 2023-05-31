@@ -4,11 +4,14 @@ from datetime import datetime
 import datetime as dt
 import os
 import re
+import sys
 import PySimpleGUI as sg
-import data_acquisition
-import inputs
-import data_treatment
-import data_analysis
+import openpyxl
+import xlsxwriter
+import perfonitor.data_acquisition as data_acquisition
+import perfonitor.inputs as inputs
+import perfonitor.data_treatment as data_treatment
+import perfonitor.data_analysis as data_analysis
 
 
 #File creation/edit/removal-------------------------------------------------------------------------------------
@@ -140,7 +143,7 @@ def update_dump_file(irradiance_files, all_irradiance_file, data_type: str = 'Ir
     return df_all_irradiance_new
 
 
-def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geography, date):
+def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geography, date, site_selection):
     ar_dir = os.path.dirname(alarm_report_path)
     #print("this is dir: " + dir)
 
@@ -158,8 +161,8 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
     #READ FILES AND EXTRACT RAW DATAFRAMES
     print('Reading Daily Alarm Report...')
     df_all, incidents_file, tracker_incidents_file, irradiance_file_data, prev_active_events, \
-    prev_active_tracker_events = data_acquisition.read_daily_alarm_report(alarm_report_path,
-                                                         irradiance_file_path, event_tracker_path, previous_dmr_path)
+    prev_active_tracker_events = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, 
+                                                                          previous_dmr_path)
 
     print('Daily Alarm Report read!')
     print('newfile: ' + incidents_file)
@@ -171,7 +174,7 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
 
     # DIVIDE RAW DATAFRAMES INTO LIST OF DATAFRAMES BY SITE
     print('Creating incidents dataframes list...')
-    site_list, df_list_active, df_list_closed = data_treatment.create_dfs(df_all, min_dur=1, roundto=1)
+    site_list, df_list_active, df_list_closed = data_treatment.create_dfs(df_all, site_selection, min_dur=1, roundto=1)
     print('Incidents dataframes list created')
     print('Creating tracker dataframes...')
     df_tracker_active, df_tracker_closed = data_treatment.create_tracker_dfs(df_all, df_general_info_calc, roundto=1)
@@ -213,7 +216,7 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
     return incidents_file, tracker_incidents_file, site_list, all_component_data
 
 
-def dmrprocess1():
+def dmrprocess1(site_selection: list = []):
     sg.theme('DarkAmber')  # Add a touch of color
     # All the stuff inside your window.
     layout = [[sg.Text('Enter date of report you want to analyse', pad=((2, 10), (2, 5)))],
@@ -238,7 +241,7 @@ def dmrprocess1():
         if event == sg.WIN_CLOSED or event == 'Exit':  # if user closes window or clicks exit
             window.close()
             return "No File", "No File", ["No site list"],"PT", "27-03-1996"
-            break
+
         if event == 'Create Incidents List':
             date = values['-CAL-']  # date is string
             Alarm_report_path = values['-FILE-']
@@ -256,14 +259,14 @@ def dmrprocess1():
             print(geography)
             print(geography_report)
             if "Daily" and "Alarm" and "Report" in Alarm_report_path and geography == geography_report and\
-                    "Irradiance" in irradiance_file_path :
+                    "Irradiance" in irradiance_file_path:
 
                 incidents_file, tracker_incidents_file, site_list, all_component_data = dmr_create_incidents_files(
-                    Alarm_report_path,irradiance_file_path, geography, date)
+                    Alarm_report_path,irradiance_file_path, geography, date, site_selection)
                 sg.popup('All incident files are ready for approval', no_titlebar=True)
                 window.close()
                 return incidents_file, tracker_incidents_file, site_list, geography, date,all_component_data
-                break
+
             elif not geography == geography_report:
                 msg = 'Selected Geography ' + geography + ' does not match geography from report ' + geography_report
                 sg.popup(msg, title = "Error with the selections")
@@ -276,7 +279,7 @@ def dmrprocess1():
                 msg = 'File is not a Irradiance file'
                 sg.popup(msg, title = "Error with the selections")
                 #print('File is not a Daily Alarm Report')
-    window.close()
+    # window.close()
 
     return
 
@@ -321,9 +324,9 @@ def dmrprocess2(incidents_file="No File", tracker_incidents_file="No File",
     add_events_to_final_report(reportfile, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed)
 
     #-------------------------------Analysis on Components Failures---------------------------------
-    #Read and update the timestamps on the anaysis dataframes
-    df_incidents_analysis, df_tracker_analysis = data_acquisition.read_analysis_df_and_correct_date(reportfiletemplate, date,
-                                                                                      roundto=1)
+    #Read and update the timestamps on the analysis dataframes
+    df_incidents_analysis, df_tracker_analysis = data_treatment.read_analysis_df_and_correct_date(reportfiletemplate, 
+                                                                                                  date, roundto=1)
     #Analysis of components failures
     df_incidents_analysis_final = data_analysis.analysis_component_incidents(
         df_incidents_analysis,site_list, df_list_closed,df_list_active, df_info_sunlight)
@@ -337,3 +340,887 @@ def dmrprocess2(incidents_file="No File", tracker_incidents_file="No File",
 
 
     return reportfile
+
+
+def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File",
+                site_list=["No site list"], geography="PT", date="27-03-1996"):
+
+    sg.theme('DarkAmber')  # Add a touch of color
+    if incidents_file == "No File" or tracker_incidents_file == "No File":
+        sg.popup('No files or site list available, please select them', no_titlebar=True)
+        incidents_file, tracker_incidents_file, site_list, geography, date = inputs.choose_incidents_files()
+        if incidents_file == "No File" or tracker_incidents_file == "No File":
+            return None
+    else:
+        print("Incidents file: " + incidents_file + "\nTracker Incidents file: " + tracker_incidents_file)
+    print(date)
+    dir = os.path.dirname(incidents_file)
+    reportfiletemplate = dir + '/Info&Templates/Reporting_'+ geography +'_Sites_' + 'Template.xlsx'
+    general_info_path = dir +  '/Info&Templates/General Info ' + geography + '.xlsx'
+    irradiance_file_path = dir +  '/Irradiance ' + geography + '/Irradiance_' + geography + '_Curated&Average-' + date.replace("-","") +  '.xlsx'
+    export_file_path = dir + '/Exported Energy ' + geography + '/Energy_Exported_' + geography + '_' + date.replace("-","") + '.xlsx'
+
+    print(irradiance_file_path)
+
+
+    #Read irradiance and export files
+    irradiance_df, export_df = data_acquisition.read_irradiance_export(irradiance_file_path, export_file_path)
+
+    #Read Active and Closed Events
+    df_list_active, df_list_closed = data_acquisition.read_approved_incidents(incidents_file, site_list, roundto=1)
+    df_tracker_active, df_tracker_closed = data_acquisition.read_approved_tracker_inc(tracker_incidents_file, roundto=1)
+
+    #Read sunrise and sunset hours
+    df_info_sunlight = pd.read_excel(incidents_file, sheet_name='Info', engine="openpyxl")
+    df_info_sunlight['Time of operation start'] = df_info_sunlight['Time of operation start'].dt.round(freq='s')
+    df_info_sunlight['Time of operation end'] = df_info_sunlight['Time of operation end'].dt.round(freq='s')
+    
+
+    #Describe Incidents
+    df_list_active = data_treatment.describe_incidents(df_list_active, df_info_sunlight, active_events=True, tracker=False)
+    df_list_closed = data_treatment.describe_incidents(df_list_closed, df_info_sunlight, active_events=False, tracker=False)
+    df_tracker_active = data_treatment.describe_incidents(df_tracker_active, df_info_sunlight, active_events=True, tracker=True)
+    df_tracker_closed = data_treatment.describe_incidents(df_tracker_closed, df_info_sunlight, active_events=False, tracker=True)
+    print(df_tracker_closed.columns)
+
+    #Add Events to Report File
+    add_events_to_final_report(reportfile, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed)
+
+    #-------------------------------Analysis on Components Failures---------------------------------
+    #Read and update the timestamps on the analysis dataframes
+    df_incidents_analysis, df_tracker_analysis = data_treatment.read_analysis_df_and_correct_date(reportfiletemplate,
+                                                                                                  date, roundto=1)
+    #Analysis of components failures
+    df_incidents_analysis_final = data_analysis.analysis_component_incidents(
+        df_incidents_analysis,site_list, df_list_closed,df_list_active, df_info_sunlight)
+
+    # Analysis of tracker failures
+    df_tracker_analysis_final = data_analysis.analysis_tracker_incidents(
+        df_tracker_analysis, df_tracker_closed,df_tracker_active, df_info_sunlight)
+
+    #Add Analysis to excel file
+    add_analysis_to_reportfile(reportfile, df_incidents_analysis_final, df_tracker_analysis_final, df_info_sunlight)
+
+
+    return reportfile
+
+
+
+
+# <editor-fold desc="ET Functions">
+
+
+#<editor-fold desc="Xlsxwriter related custom functions">
+
+def get_rowindex_and_columnletter(cell):
+    cell_letter_code = re.search(r'([\w]+)([\d]+)', cell)
+    rowindex = cell_letter_code.group(0)
+    column_letter = cell_letter_code.group(1)
+    return rowindex, column_letter
+
+def get_col_widths(dataframe):
+    # First we find the maximum length of the index column
+    idx_max = max([len(str(s)) for s in dataframe.index.values] + [len(str(dataframe.index.name))])
+    # Then, we concatenate this to the max of the lengths of column name and its values for each column, left to right
+    return [idx_max] + [max([len(str(s)) for s in dataframe[col].values] + [len(col)]) for col in dataframe.columns]
+
+
+
+# </editor-fold>
+
+def create_event_tracker_file_all(final_df_to_add, dest_file,performance_fleet_per_period, site_capacities,
+                                  dict_fmeca_shapes):
+
+    writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    workbook = writer.book
+
+
+    # <editor-fold desc="Formats">
+    # Format column header
+    format_darkblue_white = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': '#FFFFFF'})
+    format_darkblue_white.set_bold()
+    format_darkblue_white.set_text_wrap()
+
+    format_lightblue_black = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#DCE6F1', 'font_color': '#000000'})
+    format_lightblue_black.set_bold()
+    format_lightblue_black.set_text_wrap()
+    format_lightblue_black.set_border()
+
+    format_header = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': '#000000'})
+    format_header.set_bold()
+    format_header.set_text_wrap()
+
+    format_all_white = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFFFF', 'font_color': '#FFFFFF'})
+    format_all_black = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#000000'})
+    format_black_on_white = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#FFFFFF'})
+
+    # Format of specific column data
+    format_day_data = workbook.add_format({'num_format': 'dd/mm/yyyy', 'valign': 'vcenter'})
+    format_day_data.set_align('right')
+    format_day_data.set_border()
+
+    format_hour_data = workbook.add_format({'num_format': 'hh:mm:ss', 'valign': 'vcenter'})
+    format_hour_data.set_align('right')
+    format_hour_data.set_border()
+
+    format_day_hour = workbook.add_format({'num_format': 'dd/mm/yyyy hh:mm:ss', 'valign': 'vcenter'})
+    format_day_hour.set_align('right')
+    format_day_hour.set_border()
+
+    # Format numbers
+    format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
+    format_number.set_border()
+
+    format_nodecimal = workbook.add_format({'num_format': '0', 'align': 'center', 'valign': 'vcenter'})
+    format_nodecimal.set_border()
+
+    format_percentage = workbook.add_format({'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter'})
+    format_percentage.set_border()
+
+    format_percentage_good = workbook.add_format(
+            {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6EFCE',
+             'font_color': '#006100'})
+    format_percentage_good.set_border()
+    format_percentage_mid = workbook.add_format(
+            {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFEB9C',
+             'font_color': '#9C5700'})
+    format_percentage_mid.set_border()
+    format_percentage_bad = workbook.add_format(
+            {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC7CE',
+             'font_color': '#9C0006'})
+    format_percentage_bad.set_border()
+
+    # Format strings
+    format_string = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string.set_border()
+
+    format_string_wrapped = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string_wrapped.set_text_wrap()
+    format_string_wrapped.set_border()
+
+    format_string_unlocked = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'locked': False})
+    unlocked = workbook.add_format({'locked': False})
+    format_string_unlocked.set_border()
+
+    format_string_bold = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold.set_bold()
+    format_string_bold.set_border()
+
+    format_string_bold_wrapped = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold_wrapped.set_bold()
+    format_string_bold_wrapped.set_border()
+    format_string_bold_wrapped.set_text_wrap()
+
+    format_first_column = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
+    format_first_column.set_bold()
+    format_first_column.set_border()
+    format_first_column.set_text_wrap()
+    # </editor-fold>
+
+    # <editor-fold desc="YTD Performance Overview Sheet">
+    sheet = "YTD Performance Overview"
+    try:
+        ws_sheet = workbook.add_worksheet(sheet)
+    except (xlsxwriter.exceptions.DuplicateWorksheetName, NameError):
+        sheet = sheet + "_new"
+        ws_sheet = workbook.add_worksheet(sheet)
+
+    df_performance = performance_fleet_per_period['ytd'].T
+
+    sites = list(df_performance.columns)
+
+    start_row_header = 1
+    start_row_data = 2
+    start_column = 0
+
+    for site in sites:
+        level = 0
+        start_row_header_str = str(start_row_header)
+        start_row_data_str = str(start_row_data)
+
+        performance_site = df_performance.loc[:, [site]].reset_index()
+        n_rows_performance = performance_site.shape[0] + 1
+        n_columns_performance = performance_site.shape[1]
+
+        df_total = performance_site
+
+        max_rows = n_rows_performance
+        n_columns_total = df_total.shape[1]
+
+        width = get_col_widths(df_total)
+
+        print("\n", df_total)
+
+        for i in range(start_column, start_column + n_columns_total):
+
+            header = df_total.columns[i - start_column]
+
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+            header_cell = column_letter + start_row_header_str
+            data_cell = column_letter + start_row_data_str
+            all_column = column_letter + ':' + column_letter
+
+            # print('Header: ', header, "\n", 'Header cell:', header_cell, "\n", "Data Cell: ", data_cell ,"\n")
+
+            data = list(df_total[header].fillna(""))
+
+            if header == "index":
+                to_collapse_column1 = column_letter
+                data = [x for x in data if not pd.isnull(x)]
+                ws_sheet.write(header_cell, "", format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_lightblue_black)
+                if column_letter == "A":
+                    ws_sheet.set_column(all_column, 23)
+                else:
+                    ws_sheet.set_column(all_column, 0)  # ,None,{'level': 1, 'hidden': True})
+
+            elif "LSBP" in header or "Wellington" in header:
+                kpis = df_total['index']
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                data = [x for x in data if not x == ""]
+
+                for i in range(len(data)):
+                    cell = column_letter + str(start_row_data + i)
+                    value = data[i]
+                    kpi = kpis[i]
+
+                    if "%" in value:
+                        value = float(value[:-1]) / 100
+                        ws_sheet.write_number(cell, value, format_percentage)
+                        if not "PR (%)" in kpi:
+                            if "Availability" in kpi:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [{'criteria': '>=', 'type': 'number',
+                                                                              'value': 0.97},
+                                                                             {'criteria': '<', 'type': 'number',
+                                                                              'value': 0.10},
+                                                                             {'criteria': '<=', 'type': 'number',
+                                                                              'value': 0.10}]})
+
+                            else:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [
+                                                                       {'criteria': '<=', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>=', 'type': 'number',
+                                                                        'value': 0.05}]})
+
+
+                    else:
+                        value = float(value.replace(",", ""))
+                        ws_sheet.write_number(cell, value, format_number)
+
+                ws_sheet.set_column(all_column, 16, None)
+
+
+            else:
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_string)
+                ws_sheet.set_column(all_column, 18, None)  # ,{'level': 1, 'hidden': True})
+
+        level = level + 1
+        start_column = start_column + n_columns_total
+    # </editor-fold>
+
+    # <editor-fold desc="MTD Performance Overview Sheet">
+    active_events = final_df_to_add['Active Events']
+    overview_events = active_events.loc[active_events['Component Status'] == "Not Producing"][
+        ['Site Name', 'ID', 'Related Component', 'Event Start Time', 'Energy Lost (MWh)', 'Capacity Related Component']]
+    overview_events['% of site affected'] = [
+        "{:.2%}".format(row['Capacity Related Component'] / float(site_capacities.loc[row['Site Name']])) for index, row
+        in overview_events.iterrows()]
+    overview_events['Actions'] = active_events.loc[active_events['Component Status'] == "Not Producing"]['Remediation']
+    overview_events['Space'] = ""
+    #overview_events
+
+    sheet = "MTD Performance Overview"
+    try:
+        ws_sheet = workbook.add_worksheet(sheet)
+    except (xlsxwriter.exceptions.DuplicateWorksheetName, NameError):
+        sheet = sheet + "_new"
+        ws_sheet = workbook.add_worksheet(sheet)
+
+    try:
+        df_performance = performance_fleet_per_period['mtd'].T
+    except KeyError:
+        df_performance = performance_fleet_per_period['monthly'].T
+
+    sites = list(df_performance.columns)
+
+    start_row_header = 1
+    start_row_data = 2
+    start_column = 0
+
+    for site in sites:
+        level = 0
+        start_row_header_str = str(start_row_header)
+        start_row_data_str = str(start_row_data)
+
+        performance_site = df_performance.loc[:, [site]].reset_index()
+        n_rows_performance = performance_site.shape[0] + 1
+        n_columns_performance = performance_site.shape[1]
+
+        incidents_site = overview_events.loc[overview_events['Site Name'] == site].reset_index(drop=True)
+        # incidents_site.insert(1, "#", list(range(1,incidents_site.shape[0] + 1)))
+        n_rows_incidents = incidents_site.shape[0] + 1
+        n_columns_incidents = incidents_site.shape[1]
+
+        df_total = pd.concat([performance_site, incidents_site], axis=1)
+
+        max_rows = max(n_rows_performance, n_rows_incidents)
+        n_columns_total = df_total.shape[1]
+
+        width = get_col_widths(df_total)
+
+        #print("\n", df_total)
+
+        for i in range(start_column, start_column + n_columns_total):
+
+            header = df_total.columns[i - start_column]
+
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+            header_cell = column_letter + start_row_header_str
+            data_cell = column_letter + start_row_data_str
+            all_column = column_letter + ':' + column_letter
+
+            # print('Header: ', header, "\n", 'Header cell:', header_cell, "\n", "Data Cell: ", data_cell ,"\n")
+
+            data = list(df_total[header].fillna(""))
+
+            if header == "index":
+                to_collapse_column1 = column_letter
+                data = [x for x in data if not pd.isnull(x)]
+                ws_sheet.write(header_cell, "", format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_lightblue_black)
+                if column_letter == "A":
+                    ws_sheet.set_column(all_column, 23)
+                else:
+                    ws_sheet.set_column(all_column, 23 ,None,{'level': 1, 'hidden': True})  # ,None,{'level': 1, 'hidden': True})
+
+            elif "LSBP" in header or "Wellington" in header:
+                kpis = df_total['index']
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                data = [x for x in data if not x == ""]
+
+                for i in range(len(data)):
+                    cell = column_letter + str(start_row_data + i)
+                    value = data[i]
+                    kpi = kpis[i]
+
+                    if "%" in value:
+                        value = float(value[:-1]) / 100
+                        ws_sheet.write_number(cell, value, format_percentage)
+                        if not "PR (%)" in kpi:
+                            if "Availability" in kpi:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [{'criteria': '>=', 'type': 'number',
+                                                                              'value': 0.97},
+                                                                             {'criteria': '<', 'type': 'number',
+                                                                              'value': 0.10},
+                                                                             {'criteria': '<=', 'type': 'number',
+                                                                              'value': 0.10}]})
+
+                            else:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [
+                                                                       {'criteria': '<=', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>=', 'type': 'number',
+                                                                        'value': 0.05}]})
+
+
+                    else:
+                        value = float(value.replace(",", ""))
+                        ws_sheet.write_number(cell, value, format_number)
+
+                ws_sheet.set_column(all_column, 16, None)
+
+
+            elif "Time" in header:
+                data = [x for x in data if not pd.isnull(x)]
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_day_hour)
+                ws_sheet.set_column(all_column, 20, None, {'level': 1, 'hidden': True})
+
+            elif "%" in header:
+                to_collapse_column2 = column_letter
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_percentage)
+                ws_sheet.set_column(all_column, 15, None, {'level': 1, 'hidden': True})
+
+            elif "Capacity" in header or "(" in header:
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_number)
+                ws_sheet.set_column(all_column, 15, None, {'level': 1, 'hidden': True})
+
+            elif "ID" in header:
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_string_bold_wrapped)
+                ws_sheet.set_column(all_column, 18, None, {'level': 1, 'hidden': True})
+
+
+
+            elif "Site Name" in header:
+                data = list(range(50))
+                ws_sheet.write(header_cell, "", format_all_white)
+                ws_sheet.write_column(data_cell, data, format_all_white)
+                ws_sheet.set_column(all_column, 1, None, {'level': 1, 'hidden': True})
+
+            elif "Space" in header:
+                to_collapse_column = column_letter
+                data = list(range(50))
+                ws_sheet.write(header_cell, "+", format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_all_white)
+                ws_sheet.set_column(all_column, 2, None, {'collapsed': True})
+
+            elif "Actions" in header:
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_string)  # format_string_wrapped
+                ws_sheet.set_column(all_column, 55, None, {'level': 1, 'hidden': True})
+
+
+            else:
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_string)
+                ws_sheet.set_column(all_column, 18, None, {'level': 1, 'hidden': True})
+
+        level = level + 1
+        start_column = start_column + n_columns_total
+    # </editor-fold>
+
+    # <editor-fold desc="FMECA AUX sheet">
+    start_row_index = 1
+    start_column_index = 1
+    start_column = openpyxl.utils.cell.get_column_letter(1)
+    dict_fmeca_table_range = {}
+    for name, data in dict_fmeca_shapes.items():
+        df = data[0]
+        shape = data[1]
+
+        n_row = shape[0]
+        n_column = shape[1]
+
+        start_column = openpyxl.utils.cell.get_column_letter(1)
+        end_column = openpyxl.utils.cell.get_column_letter(shape[1])
+        end_row = start_row_index + n_row
+
+        start_cell = start_column + str(start_row_index)
+        table_range = "$" + start_column + "$" + str(start_row_index + 1) + ":$" + end_column + "$" + str(end_row)
+        dict_fmeca_table_range[name] = table_range
+
+        # range
+        # print(df)
+
+        df.to_excel(writer, sheet_name='FMECA_AUX', startrow=start_row_index - 1, startcol=start_column_index - 1,
+                    index=False)
+
+        for i in range(len(df.columns)):
+            range_name = df.columns[i]
+            # print(range_name)
+            column = openpyxl.utils.cell.get_column_letter(i + 1)
+            range_cells = '$' + column + "$" + str(start_row_index + 1) + ":$" + column + "$" + str(end_row)
+            workbook.define_name(range_name, '=FMECA_AUX!' + range_cells)
+            """if "ategory" not in name:
+                workbook.define_name(range_name, '=FMECA_AUX!' + range_cells)"""
+
+        # Prepare next iteration
+        start_row_index = start_row_index + n_row + 2
+    # </editor-fold>
+
+    # <editor-fold desc="Events' sheets">
+    fmeca_columns = final_df_to_add['FMECA'].columns.to_list()
+    n_rows_fmeca = final_df_to_add['FMECA'].shape[0]
+    n_columns_fmeca = final_df_to_add['FMECA'].shape[1]
+    reference_column = openpyxl.utils.cell.get_column_letter(
+        final_df_to_add['FMECA'].columns.to_list().index('Fault') + 1)
+
+    for sheet in final_df_to_add.keys():
+        df = final_df_to_add[sheet]
+        width = get_col_widths(df)
+        n_rows = df.shape[0]
+        n_columns = df.shape[1]
+        try:
+            ws_sheet = workbook.add_worksheet(sheet)
+        except (xlsxwriter.exceptions.DuplicateWorksheetName, NameError):
+            sheet = sheet + "_new"
+            ws_sheet = workbook.add_worksheet(sheet)
+        if "Closed" in sheet or "Active" in sheet:
+            for i in range(len(df.columns)):
+                header = df.columns[i]
+                column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+                header_cell = column_letter + '1'
+                data_cell = column_letter + '2'
+                all_column = column_letter + ':' + column_letter
+                data = df[header].fillna("")
+
+                if header == 'ID':
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_first_column)
+                    ws_sheet.set_column(all_column, 18)
+
+                elif "Time" in header:
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_day_hour)
+                    ws_sheet.set_column(all_column, 19)
+
+                elif "Capacity" in header or "(" in header:
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_number)
+                    ws_sheet.set_column(all_column, 12)
+
+
+                elif "Fa" in header or "ategory" in header or "Excludable" in header:
+                    if header == "Resolution Category":
+                        ws_sheet.write(header_cell, header, format_header)
+                        ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                        ws_sheet.set_column(all_column, width[i + 1], unlocked)
+                        ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                                 {'validate': 'list', 'source': ['Repair',
+                                                                                 'Reset',
+                                                                                 'Part Replacement',
+                                                                                 'Unit Replacement']})
+
+                    elif "Excludable" in header:
+                        ws_sheet.write(header_cell, header, format_header)
+                        ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                        ws_sheet.set_column(all_column, width[i + 1], unlocked)
+                        #ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                               #  {'validate': 'list',
+                                               #   'source': ['OMC', 'Force Majeure', 'Curtailment', "N/A"]})
+
+                    else:
+                        fmeca_column_match = openpyxl.utils.cell.get_column_letter(fmeca_columns.index(header) + 1)
+                        ws_sheet.write(header_cell, header, format_header)
+                        ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                        ws_sheet.set_column(all_column, width[i + 1], unlocked)
+
+                        # Add Data validation
+                        if header == 'Fault':
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                                     {'validate': 'list',
+                                                      'source': '=FMECA_AUX!' + str(dict_fmeca_table_range['Faults'])})
+                            fault_cell = data_cell
+
+                        elif header == 'Fault Component':
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                                     {'validate': 'list',
+                                                      'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
+                                                                fault_cell + ', " ", "_"), "-","_"))'})
+                            fcomp_cell = data_cell
+
+                        elif header == 'Failure Mode':
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                                     {'validate': 'list',
+                                                      'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
+                                                                fault_cell + '&"_"&' +
+                                                                fcomp_cell + '," ", "_"),"-","_"))'})
+                            fmode_cell = data_cell
+
+                        elif header == 'Failure Mechanism':
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                                     {'validate': 'list',
+                                                      'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
+                                                                fault_cell + '&"_"&' +
+                                                                fcomp_cell + '&"_"&' +
+                                                                fmode_cell + ', " ", "_"), "-","_"))'})
+                            fmec_cell = data_cell
+
+                        elif header == 'Category':
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                                     {'validate': 'list',
+                                                      'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
+                                                                fault_cell + '&"_"&' +
+                                                                fcomp_cell + '&"_"&' +
+                                                                fmode_cell + '&"_"&' +
+                                                                fmec_cell + ', " ", "_"), "-","_"))'})
+                            cat_cell = data_cell
+                        elif header == 'Subcategory':
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                                     {'validate': 'list',
+                                                      'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
+                                                                fault_cell + '&"_"&' +
+                                                                fcomp_cell + '&"_"&' +
+                                                                fmode_cell + '&"_"&' +
+                                                                fmec_cell + '&"_"&' +
+                                                                cat_cell + ', " ", "_"), "-","_"))'})
+                            subcat_cell = data_cell
+
+                elif header == "Incident Status":
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                    ws_sheet.set_column(all_column, width[i + 1], unlocked)
+                    ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                             {'validate': 'list', 'source': ['Open', 'Closed']})
+
+                elif header == "Categorization Status":
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                    ws_sheet.set_column(all_column, width[i + 1], unlocked)
+                    ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                             {'validate': 'list', 'source': ['Pending', 'Completed']})
+
+                elif header == 'Remediation' or header == 'Comments':
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string_wrapped)
+                    ws_sheet.set_column(all_column, 60)
+
+
+                else:
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string)
+                    ws_sheet.set_column(all_column, width[i + 1])
+        else:
+            for i in range(len(df.columns)):
+                header = df.columns[i]
+                column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+                header_cell = column_letter + '1'
+                data_cell = column_letter + '2'
+                all_column = column_letter + ':' + column_letter
+                data = df[header].fillna("")
+
+                if "ID" in header:
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_first_column)
+                    ws_sheet.set_column(all_column, width[i + 1])
+                else:
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string)
+                    ws_sheet.set_column(all_column, width[i + 1])
+
+        ws_sheet.set_default_row(30)
+    # </editor-fold>
+
+    ws_active = workbook.get_worksheet_by_name("MTD Performance Overview")
+    ws_active.activate()
+
+    ws_fmeca_aux = workbook.get_worksheet_by_name('FMECA_AUX')
+    ws_fmeca_aux.hide()
+
+    writer.save()
+    print('Done')
+
+    return
+
+def create_underperformance_report(underperformance_dest_file,incidents_corrected_period, performance_fleet_per_period):
+
+    writer_und = pd.ExcelWriter(underperformance_dest_file, engine='xlsxwriter',engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    workbook = writer_und.book
+
+    # <editor-fold desc="Formats">
+    # Format column header
+    format_darkblue_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': '#FFFFFF'})
+    format_darkblue_white.set_bold()
+    format_darkblue_white.set_text_wrap()
+
+    format_lightblue_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#DCE6F1', 'font_color': '#000000'})
+    format_lightblue_black.set_bold()
+    format_lightblue_black.set_text_wrap()
+    format_lightblue_black.set_border()
+
+    format_header = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': '#000000'})
+    format_header.set_bold()
+    format_header.set_text_wrap()
+
+    format_all_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFFFF', 'font_color': '#FFFFFF'})
+    format_all_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#000000'})
+    format_black_on_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#FFFFFF'})
+
+    # Format of specific column data
+    format_day_data = workbook.add_format({'num_format': 'dd/mm/yyyy', 'valign': 'vcenter'})
+    format_day_data.set_align('right')
+    format_day_data.set_border()
+
+    format_hour_data = workbook.add_format({'num_format': 'hh:mm:ss', 'valign': 'vcenter'})
+    format_hour_data.set_align('right')
+    format_hour_data.set_border()
+
+    format_day_hour = workbook.add_format({'num_format': 'dd/mm/yyyy hh:mm:ss', 'valign': 'vcenter'})
+    format_day_hour.set_align('right')
+    format_day_hour.set_border()
+
+    # Format numbers
+    format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
+    format_number.set_border()
+
+    format_nodecimal = workbook.add_format({'num_format': '0', 'align': 'center', 'valign': 'vcenter'})
+    format_nodecimal.set_border()
+
+    format_percentage = workbook.add_format({'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter'})
+    format_percentage.set_border()
+
+    format_percentage_good = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6EFCE',
+         'font_color': '#006100'})
+    format_percentage_good.set_border()
+    format_percentage_mid = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFEB9C',
+         'font_color': '#9C5700'})
+    format_percentage_mid.set_border()
+    format_percentage_bad = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC7CE',
+         'font_color': '#9C0006'})
+    format_percentage_bad.set_border()
+
+    # Format strings
+    format_string = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string.set_border()
+
+    format_string_wrapped = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string_wrapped.set_text_wrap()
+    format_string_wrapped.set_border()
+
+    format_string_unlocked = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'locked': False})
+    unlocked = workbook.add_format({'locked': False})
+    format_string_unlocked.set_border()
+
+    format_string_bold = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold.set_bold()
+    format_string_bold.set_border()
+
+    format_string_bold_wrapped = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold_wrapped.set_bold()
+    format_string_bold_wrapped.set_border()
+    format_string_bold_wrapped.set_text_wrap()
+
+    format_first_column = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
+    format_first_column.set_bold()
+    format_first_column.set_border()
+    format_first_column.set_text_wrap()
+    # </editor-fold>
+
+    # <editor-fold desc="Performance Overview Sheet">
+    sheet = "Performance Overview"
+    try:
+        ws_sheet = workbook.add_worksheet(sheet)
+    except (xlsxwriter.exceptions.DuplicateWorksheetName, NameError):
+        sheet = sheet + "_new"
+        ws_sheet = workbook.add_worksheet(sheet)
+
+    try:
+        df_performance = performance_fleet_per_period['choose'].T
+    except KeyError:
+        df_performance = performance_fleet_per_period['monthly'].T
+
+    sites = list(df_performance.columns)
+
+    start_row_header = 1
+    start_row_data = 2
+    start_column = 0
+
+    for site in sites:
+        level = 0
+        start_row_header_str = str(start_row_header)
+        start_row_data_str = str(start_row_data)
+
+        performance_site = df_performance.loc[:, [site]].reset_index()
+        n_rows_performance = performance_site.shape[0] + 1
+        n_columns_performance = performance_site.shape[1]
+
+        df_total = performance_site
+
+        max_rows = n_rows_performance
+        n_columns_total = df_total.shape[1]
+
+        width = get_col_widths(df_total)
+
+        print("\n", df_total)
+
+        for i in range(start_column, start_column + n_columns_total):
+
+            header = df_total.columns[i - start_column]
+
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+            header_cell = column_letter + start_row_header_str
+            data_cell = column_letter + start_row_data_str
+            all_column = column_letter + ':' + column_letter
+
+            # print('Header: ', header, "\n", 'Header cell:', header_cell, "\n", "Data Cell: ", data_cell ,"\n")
+
+            data = list(df_total[header].fillna(""))
+
+            if header == "index":
+                to_collapse_column1 = column_letter
+                data = [x for x in data if not pd.isnull(x)]
+                ws_sheet.write(header_cell, "", format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_lightblue_black)
+                if column_letter == "A":
+                    ws_sheet.set_column(all_column, 23)
+                else:
+                    ws_sheet.set_column(all_column, 0)  # ,None,{'level': 1, 'hidden': True})
+
+            elif "LSBP" in header or "Wellington" in header:
+                kpis = df_total['index']
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                data = [x for x in data if not x == ""]
+
+                for i in range(len(data)):
+                    cell = column_letter + str(start_row_data + i)
+                    value = data[i]
+                    kpi = kpis[i]
+
+                    if "%" in value:
+                        value = float(value[:-1]) / 100
+                        ws_sheet.write_number(cell, value, format_percentage)
+                        if not "PR (%)" in kpi:
+                            if "Availability" in kpi:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [{'criteria': '>=', 'type': 'number',
+                                                                              'value': 0.97},
+                                                                             {'criteria': '<', 'type': 'number',
+                                                                              'value': 0.10},
+                                                                             {'criteria': '<=', 'type': 'number',
+                                                                              'value': 0.10}]})
+
+                            else:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [
+                                                                       {'criteria': '<=', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>=', 'type': 'number',
+                                                                        'value': 0.05}]})
+
+
+                    else:
+                        value = float(value.replace(",", ""))
+                        ws_sheet.write_number(cell, value, format_number)
+
+                ws_sheet.set_column(all_column, 16, None)
+
+
+            else:
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_string)
+                ws_sheet.set_column(all_column, 18, None)  # ,{'level': 1, 'hidden': True})
+
+        level = level + 1
+        start_column = start_column + n_columns_total
+    # </editor-fold>
+
+    ws_active = workbook.get_worksheet_by_name("Performance Overview")
+    ws_active.activate()
+
+
+    incidents_corrected_period.to_excel(writer_und, sheet_name='Underperformance Report', index=False)
+
+    writer_und.save()
+
+    print('Done')
+
+    return
+
+
+# </editor-fold>

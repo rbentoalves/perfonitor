@@ -1,11 +1,11 @@
 import pandas as pd
 from datetime import datetime
-import inputs
+import perfonitor.inputs as inputs
 import re
 import os
 import PySimpleGUI as sg
 import statistics
-import data_treatment
+import perfonitor.data_treatment as data_treatment
 
 
 def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, previous_dmr_path):
@@ -308,3 +308,285 @@ def read_approved_tracker_inc(tracker_file, roundto: int = 15):
     df_tracker_closed = data_treatment.rounddatesclosed_15m('Trackers', df_tracker_closed, freq=roundto)
 
     return df_tracker_active, df_tracker_closed
+
+
+# <editor-fold desc="ET Functions">
+
+def get_files_to_add(date_start, date_end, dmr_folder, geography, no_update: bool = False):
+    if no_update == False:
+        if date_end == None:
+            date_list = pd.date_range(date_start, date_start, freq = 'd')
+        else:
+            date_list = pd.date_range(date_start, date_end, freq = 'd')
+
+        report_files_dict = {}
+        irradiance_dict = {}
+        export_dict = {}
+
+        irradiance_folder = dmr_folder + "/Irradiance " + geography
+        export_folder = dmr_folder + "/Exported Energy " + geography
+
+        for date in date_list:
+            #Get date info for name
+            month = str("0" + str(date.month)) if date.month < 10 else str(date.month)
+            day = str("0" + str(date.day)) if date.day < 10 else str(date.day)
+            year = str(date.year)
+
+            #Get each of the files to be used in each day
+            report_file = dmr_folder + '/Reporting_' + geography + '_Sites_' + str(day) + "-" + str(month) + '.xlsx'  # will be picked by user
+            irradiance_file = irradiance_folder + '/Irradiance_' + geography + '_Curated&Average-' + year + month + str(day) + '.xlsx'  # will be picked by user
+            export_file = export_folder + '/Energy_Exported_' + geography + '_' + year + month + str(day) + '.xlsx'  # will be picked by user
+
+            report_files_dict[date] = report_file
+            irradiance_dict[date] = irradiance_file
+            export_dict[date] = export_file
+
+        report_files = list(report_files_dict.values())
+        irradiance_files = list(irradiance_dict.values())
+        export_files = list(export_dict.values())
+
+        all_irradiance_file = irradiance_folder + '/All_Irradiance_' + geography + '.xlsx'  # will be picked by use
+        all_export_file = export_folder + '/All_Energy_Exported_' + geography + '.xlsx'  # will be picked by use
+        general_info_path = dmr_folder + '/Info&Templates/General Info ' + geography + '.xlsx'  # will be picked by script
+
+
+        return report_files, irradiance_files, export_files, all_irradiance_file, all_export_file, general_info_path
+
+    else:
+        irradiance_folder = dmr_folder + "/Irradiance " + geography
+        export_folder = dmr_folder + "/Exported Energy " + geography
+
+        all_irradiance_file = irradiance_folder + '/All_Irradiance_' + geography + '.xlsx'  # will be picked by use
+        all_export_file = export_folder + '/All_Energy_Exported_' + geography + '.xlsx'  # will be picked by use
+        general_info_path = dmr_folder + '/Info&Templates/General Info ' + geography + '.xlsx'  # will be picked by script
+
+
+        return all_irradiance_file, all_export_file, general_info_path
+
+def get_general_info_dataframes(general_info_path):
+    # Read general info file
+    all_component_data = pd.read_excel(general_info_path, sheet_name='Component Code', engine='openpyxl')
+    budget_irradiance = pd.read_excel(general_info_path, sheet_name='Budget Irradiance', index_col=0, engine='openpyxl')
+    budget_pr = pd.read_excel(general_info_path, sheet_name='Budget PR', index_col=0, engine='openpyxl')
+    budget_export = pd.read_excel(general_info_path, sheet_name='Budget Export', index_col=0, engine='openpyxl')
+
+    # Separate data
+    component_data = all_component_data.loc[
+        (all_component_data['Component Type'] != 'Tracker') & (all_component_data['Component Type'] != 'Tracker Group')]
+    tracker_data = all_component_data.loc[
+        (all_component_data['Component Type'] == 'Tracker') | (all_component_data['Component Type'] == 'Tracker Group')]
+    fmeca_data = pd.read_excel(general_info_path, sheet_name='FMECA', engine='openpyxl')
+
+    site_capacities = component_data.loc[component_data['Component Type'] == 'Site'][
+        ['Component', 'Nominal Power DC']].set_index('Component')
+    fleet_capacity = site_capacities['Nominal Power DC'].sum()
+
+
+    return component_data,tracker_data,fmeca_data,site_capacities,fleet_capacity,budget_irradiance,budget_pr,budget_export
+
+def get_dataframes_to_add_to_EventTracker(report_files,event_tracker_file_path, fmeca_data,
+                                          component_data, tracker_data):
+    '''From Event Tracker & files, gets all dataframes to add separated by dictionaries.
+    Returns: df_to_add - dict with new dfs to add
+             df_event_tracker - dict with existing dfs in tracker
+             fmeca_data - Corrected for Unnamed columns and incomplete entries'''
+
+    #Dataframes from Event Tracker
+
+    df_all = pd.read_excel(event_tracker_file_path,
+                           sheet_name=['Active Events', 'Closed Events', 'Active tracker incidents',
+                                       'Closed tracker incidents'], engine='openpyxl')
+
+    df_active_eventtracker = df_all['Active Events']
+    df_closed_eventtracker = df_all['Closed Events']
+    df_active_eventtracker_trackers = df_all['Active tracker incidents']
+    df_closed_eventtracker_trackers = df_all['Closed tracker incidents']
+
+    #Dataframes to add
+    for report_path in report_files:
+        df_active_to_add_report = pd.read_excel(report_path, sheet_name='Active Events', engine='openpyxl')
+        df_closed_to_add_report = pd.read_excel(report_path, sheet_name='Closed Events', engine='openpyxl')
+        df_active_to_add_trackers_report = pd.read_excel(report_path, sheet_name='Active tracker incidents',
+                                                         engine='openpyxl')
+        df_closed_to_add_trackers_report = pd.read_excel(report_path, sheet_name='Closed tracker incidents',
+                                                         engine='openpyxl')
+
+        try:
+            df_active_reports = df_active_reports.append(df_active_to_add_report)
+        except NameError:
+            df_active_reports = df_active_to_add_report
+
+        try:
+            df_closed_reports = df_closed_reports.append(df_closed_to_add_report)
+        except NameError:
+            df_closed_reports = df_closed_to_add_report
+
+        try:
+            df_active_reports_trackers = df_active_reports_trackers.append(df_active_to_add_trackers_report)
+        except NameError:
+            df_active_reports_trackers = df_active_to_add_trackers_report
+
+        try:
+            df_closed_reports_trackers = df_closed_reports_trackers.append(df_closed_to_add_trackers_report)
+        except NameError:
+            df_closed_reports_trackers = df_closed_to_add_trackers_report
+
+    # Reset Index
+    df_active_reports.reset_index(drop=True, inplace=True)
+    df_closed_reports.reset_index(drop=True, inplace=True)
+    df_active_reports_trackers.reset_index(drop=True, inplace=True)
+    df_closed_reports_trackers.reset_index(drop=True, inplace=True)
+
+    # Dicts with dataframes
+    df_to_add = {'Closed Events': df_closed_reports,
+                 'Closed tracker incidents': df_closed_reports_trackers,
+                 'Active Events': df_active_reports,
+                 'Active tracker incidents': df_active_reports_trackers}
+
+    df_event_tracker = {'Closed Events': df_closed_eventtracker,
+                        'Closed tracker incidents': df_closed_eventtracker_trackers,
+                        'Active Events': df_active_eventtracker,
+                        'Active tracker incidents': df_active_eventtracker_trackers}
+
+    # Correct any unnamed columns
+    fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
+    fmeca_data = fmeca_data.dropna(thresh=8)
+
+    # Correct unnamed columns
+    for sheet in df_event_tracker:
+        df = df_event_tracker[sheet]
+        corrected_df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+        df_event_tracker[sheet] = corrected_df
+
+    #Correct structure of df_to_add dfs to match Event Tracker
+    for df_name_pair in df_to_add.items():
+
+        df_data = df_name_pair[1]
+        df_name = df_name_pair[0]
+        print(df_name)
+        #print(df_data)
+        if "Closed" in df_name:
+            active = False
+        else:
+            active = True
+
+        if not "tracker" in df_name:
+            component_data_effective = component_data
+            tracker_check = False
+        else:
+            component_data_effective = tracker_data
+            tracker_check = True
+
+        # print(df_name, " corrected")
+        df_corrected = data_treatment.match_df_to_event_tracker(df_data, component_data_effective, fmeca_data, active=active,
+                                                    tracker = tracker_check)
+        
+
+        df_to_add[df_name] = df_corrected
+
+
+
+    return df_to_add, df_event_tracker, fmeca_data
+
+def get_final_dataframes_to_add_to_EventTracker(df_to_add, df_event_tracker, fmeca_data):
+    '''From the different dataframe dictionaries available (New Reports to Add, Event Tracker info and FMECA data,
+    creates dict with final dataframes to add.
+    Events are verified, excludes from new additions any incident already on Event Tracker and removes from
+    active sheet any closed incident.
+    Returns: df_final_to_add'''
+
+    final_df_to_add = {}
+    # Choose which incidents to add to event tracker
+    for sheet in df_to_add.keys():
+        print("Joining new df to event tracker df - " , sheet)
+        if "Closed" in sheet:
+            df_toadd_id = df_to_add[sheet]['ID'].to_list()  # Get dataframe to add - Closed
+            df_ET_id = df_event_tracker[sheet]['ID'].to_list()  # Get dataframe event tracker - Closed
+
+            set_df_ET_id = set(df_ET_id)
+            df_toadd_id_tokeep = [x for x in df_toadd_id if x not in set_df_ET_id]
+
+            df_to_add[sheet] = df_to_add[sheet][df_to_add[sheet]['ID'].isin(df_toadd_id_tokeep)].reset_index(drop=True)
+
+            # df_to_add_id = list(set(df_id) - set(df_ET_id))
+
+        else:
+            other_sheet = sheet.replace('Active', 'Closed')
+
+            df_toadd_id = df_to_add[sheet]['ID'].to_list()  # Get active dataframe to add and all others
+
+            df_closed_id = df_to_add[other_sheet]['ID'].to_list()
+            df_ET_id = df_event_tracker[sheet]['ID'].to_list()
+            df_ET_closed_id = df_event_tracker[other_sheet]['ID'].to_list()
+            all_ids = df_closed_id + df_ET_id + df_ET_closed_id
+
+            set_all_ids = set(all_ids)
+            df_toadd_id_tokeep = [x for x in df_toadd_id if x not in set_all_ids]
+
+            df_to_add[sheet] = df_to_add[sheet][df_to_add[sheet]['ID'].isin(df_toadd_id_tokeep)].reset_index(drop=True)
+
+        # Join new events with events from event tracker and sort them
+        if not df_to_add[sheet].empty:
+            new_df = pd.concat([df_event_tracker[sheet], df_to_add[sheet]]).sort_values(
+                by=['Site Name', 'Event Start Time', 'Related Component'], ascending=[True, False, False],
+                ignore_index=True)
+        else:
+            new_df = df_event_tracker[sheet]
+        final_df_to_add[sheet] = new_df
+
+    # Correct final active lists to exclude already closed events
+    for sheet in final_df_to_add.keys():
+        print("Correcting final dfs to add - ", sheet)
+        if "Active" in sheet:
+            other_sheet = sheet.replace('Active', 'Closed')
+            df_active = final_df_to_add[sheet]
+            df_active_id = final_df_to_add[sheet]['ID'].to_list()
+
+            df_closed = final_df_to_add[other_sheet]
+            df_closed_id = final_df_to_add[other_sheet]['ID'].to_list()
+
+            set_closed_ids = set(df_closed_id)
+            df_tokeep_id = [x for x in df_active_id if x not in set_closed_ids]
+            df_toremove_id = [x for x in df_active_id if x in set_closed_ids]
+
+            for id_incident in df_toremove_id:
+                index_closed = int(df_closed.loc[df_closed['ID'] == id_incident].index.values)
+                index_active = int(df_active.loc[df_active['ID'] == id_incident].index.values)
+                df_closed.loc[index_closed, 'Remediation'] = df_active.loc[index_active, 'Remediation']
+                df_closed.loc[index_closed, 'Fault'] = df_active.loc[index_active, 'Fault']
+                df_closed.loc[index_closed, 'Fault Component'] = df_active.loc[index_active, 'Fault Component']
+                df_closed.loc[index_closed, 'Failure Mode'] = df_active.loc[index_active, 'Failure Mode']
+                df_closed.loc[index_closed, 'Failure Mechanism'] = df_active.loc[index_active, 'Failure Mechanism']
+                df_closed.loc[index_closed, 'Category'] = df_active.loc[index_active, 'Category']
+                df_closed.loc[index_closed, 'Subcategory'] = df_active.loc[index_active, 'Subcategory']
+                df_closed.loc[index_closed, 'Resolution Category'] = df_active.loc[index_active, 'Resolution Category']
+
+            final_df_to_add[sheet] = final_df_to_add[sheet][
+                final_df_to_add[sheet]['ID'].isin(df_tokeep_id)].reset_index(drop=True)
+            final_df_to_add[other_sheet] = df_closed
+        else:
+            pass
+
+        # final_df_to_add[sheet]
+    for sheet, df in final_df_to_add.items():
+        print("Correcting timestamps on final dfs to add - ", sheet)
+        if "Active" in sheet:
+            df['Event Start Time'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
+                                      df['Event Start Time']]
+            df.sort_values(by = ['ID', 'Event Start Time'], inplace = True,ascending=[True, False],ignore_index=True)
+        else:
+            df['Event Start Time'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
+                                      df['Event Start Time']]
+            df['Event End Time'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
+                                    df['Event End Time']]
+            df.sort_values(by=['Event Start Time', 'ID'], inplace=True, ascending=[False, False], ignore_index=True)
+        final_df_to_add[sheet] = df
+
+    final_df_to_add['FMECA'] = fmeca_data
+    final_df_to_add = dict(sorted(final_df_to_add.items()))
+
+    return final_df_to_add
+
+
+# </editor-fold>
+
