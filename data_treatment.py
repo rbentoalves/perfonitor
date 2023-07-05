@@ -846,8 +846,6 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
         df_active = df_active.reset_index(None, drop=True)
         df_active = rounddatesactive_15m(site, df_active, freq=roundto)
 
-        """if site == 'LSBP - Impact_Solar':
-            df_active = mf.impact_inv_blocks(df_active, aux_df_blocks)"""
         df_list_active[site] = df_active
 
         # Create closed df for a given site
@@ -855,8 +853,6 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
         df_closed = df_closed.reset_index(None, drop=True)
         df_closed = rounddatesclosed_15m(site, df_closed, freq=roundto)
 
-        """if site == 'LSBP - Impact_Solar':
-            df_closed = mf.impact_inv_blocks(df_closed, aux_df_blocks)"""
         df_list_closed[site] = df_closed
 
     return df_list_active, df_list_closed
