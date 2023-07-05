@@ -3,12 +3,11 @@ from datetime import datetime
 import re
 import PySimpleGUI as sg
 import math
-import perfonitor.inputs as inputs
+import inputs as inputs
 import numpy as np
 import os
 import openpyxl
 import sys
-
 
 
 # <editor-fold desc="Corrections">
@@ -59,22 +58,32 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
         parents = (site_info.loc[site_info['Component'] == row['Related Component']]).loc[:,
                   site_info.columns.str.contains('Parent')].values.flatten().tolist()
         parents = [x for x in parents if str(x) != 'nan']
+        print("\n" + id_incident)
 
         try:
-            # Active Events-------------------------------------------------------------------------------------
-            math.isnan(row['Event End Time'])
-            effective_start_time_incident = row['Event Start Time']
+            if pd.isnull(row['Event End Time']):
+                # Active Events-------------------------------------------------------------------------------------
+                effective_start_time_incident = row['Event Start Time']
 
-            # In active events, end time of incident is the latest record of irradiance
-            effective_end_time_incident = datetime.strptime(str(df_irradiance_site['Timestamp'].to_list()[-1]),
-                                                            '%Y-%m-%d %H:%M:%S')
-            closed_event = False
+                # In active events, end time of incident is the latest record of irradiance
+                effective_end_time_incident = datetime.strptime(str(df_irradiance_site['Timestamp'].to_list()[-1]),
+                                                                '%Y-%m-%d %H:%M:%S')
+                print("Active incident, effective end time: " + str(effective_end_time_incident))
+                closed_event = False
+
+            else:
+                # Closed Events
+                closed_event = True
+                effective_start_time_incident = row['Event Start Time']
+                effective_end_time_incident = row['Event End Time']
+                print("Closed incident")
 
         except TypeError:
             # Closed Events
             closed_event = True
             effective_start_time_incident = row['Event Start Time']
             effective_end_time_incident = row['Event End Time']
+            print("Closed incident")
 
         finally:
             if len(parents) == 0:
@@ -125,13 +134,23 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                 pd.Series(row_rpi['Event Start Time']).dt.round(granularity_str, 'shift_backward')[0]
                             rpi_actual_start_time = row_rpi['Event Start Time']
 
-                            try:
-                                rpi_end_time = \
-                                    pd.Series(row_rpi['Event End Time']).dt.round(granularity_str, 'shift_forward')[0]
-                                rpi_actual_end_time = row_rpi['Event End Time']
-                            except AttributeError:
+                            if not pd.isnull(row_rpi["Event End Time"]):
+                                print("End time not null: " + str(row_rpi["Event End Time"]))
+                                try:
+                                    rpi_end_time = \
+                                        pd.Series(row_rpi['Event End Time']).dt.round(granularity_str, 'shift_forward')[
+                                            0]
+                                    rpi_actual_end_time = row_rpi['Event End Time']
+                                    # print(rpi_actual_end_time)
+
+                                except AttributeError:
+                                    rpi_end_time = effective_end_time_incident
+                                    rpi_actual_end_time = effective_end_time_incident
+                            else:
+                                print("End time null: " + str(row_rpi["Event End Time"]))
                                 rpi_end_time = effective_end_time_incident
                                 rpi_actual_end_time = effective_end_time_incident
+                                print("New End time: " + str(effective_end_time_incident))
 
                             timestamp_range = list(pd.date_range(start=rpi_start_time,
                                                                  end=rpi_end_time, freq='15min'))
@@ -149,18 +168,24 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                                                              "Timestamp"] <= rpi_actual_end_time) &
                                                                       (export_incident[
                                                                            "Timestamp"] >= rpi_actual_start_time)][
-                                    "Timestamp"].to_list()
+                                    "Timestamp"].to_list() #for availability calculation (active incident hours)
 
-                                timestamp_range_eloss = []
+                                timestamp_range_eloss = []  # this is empty bc curt excludes the capacity of the
+                                # incident so energy loss needs to be calculated at this incident
+                                # level
 
-                                print(timestamp_range)
+                                if len(timestamp_range) > 0:
+                                    print("Between: " + str(timestamp_range[0]) + " and " + str(timestamp_range[-1]))
+                                else:
+                                    print("No correction needed")
 
                             else:
                                 print("Correcting Non-Curtailment")
                                 timestamp_range = timestamp_range_eloss = list(pd.date_range(start=rpi_start_time,
                                                                                              end=rpi_end_time,
                                                                                              freq='15min'))
-                                print(timestamp_range)
+
+                                print("Between: " + str(timestamp_range[0]) + " and " + str(timestamp_range[-1]))
 
                             try:
                                 timestamps_to_remove += timestamp_range
@@ -193,7 +218,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                         actual_column = corrected_irradiance_incident.loc[:,
                                         corrected_irradiance_incident.columns.str.contains('Average')]
                         actual_column = \
-                        actual_column.loc[:, ~actual_column.columns.str.contains('curated')].columns.values[0]
+                            actual_column.loc[:, ~actual_column.columns.str.contains('curated')].columns.values[0]
 
                         cleaned_irradiance = irradiance_incident.loc[
                             irradiance_incident['Timestamp'].isin(timestamps_to_keep_eloss)].dropna(
@@ -355,11 +380,10 @@ def reset_final_report(Report_template_path, date, geography):
     day = date[-2:]
     reportxl = openpyxl.load_workbook(Report_template_path)
     dir = os.path.dirname(Report_template_path)
-    dir = dir.replace("/Info&Templates","")
+    dir = dir.replace("/Info&Templates", "")
     basename = os.path.basename(Report_template_path)
 
-    reportfile = dir +  '/Reporting_'+ geography +'_Sites_' + str(day) + '-' + str(month) + '.xlsx'
-
+    reportfile = dir + '/Reporting_' + geography + '_Sites_' + str(day) + '-' + str(month) + '.xlsx'
 
     if not 'Active Events' in reportxl.sheetnames:
         pass
@@ -408,8 +432,6 @@ def reset_final_report(Report_template_path, date, geography):
     else:
         del reportxl['Closed tracker incidents']
         reportxl.save(reportfile)
-
-
 
     return reportfile
 
@@ -771,7 +793,24 @@ def verify_read_time_of_operation(site, day, stime, etime):
 
 # <editor-fold desc="Dataframe creation">
 
-def create_dfs(df, min_dur: int = 15, roundto: int = 15):
+def filter_site_selection(df, site_selection):
+    """From a dataframe of a report containing all incidents from various sites, this script filters it out for
+    the given site_selection
+
+    USAGE: create_dfs(original_df,site_selection)
+
+    Returns df_corrected"""
+
+    sites = df['Site Name']
+    corrected_sites = [correct_site_name(site) for site in sites]
+    df['Site Name'] = corrected_sites
+
+    df_corrected = df[df["Site Name"].isin(site_selection)]
+
+    return df_corrected
+
+
+def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
     """From a dataframe of a report containing all incidents from various sites, this script creates a dictionary
     (list with keys and values (ex: 'LSBP - Grants' : df_active_events_Grants) for ACTIVE and CLOSED EVENTS containing
     all sites present in the original dataframe. Independently of the number of sites in the input dataframe
@@ -779,9 +818,6 @@ def create_dfs(df, min_dur: int = 15, roundto: int = 15):
     USAGE: create_dfs(original_df,minimum duration of events (default = 15), auxiliary_df_for_block_identification)
 
     Returns site_list,df_list_active, df_list_closed"""
-    sites = df['Site Name']
-    corrected_sites = [correct_site_name(site) for site in sites]
-    df['Site Name'] = corrected_sites
 
     df_closed_all = filter_notprod_and_duration(df,
                                                 min_dur)  # creates dataframe with closed, not producing incidents with a minimum specified duration
@@ -796,14 +832,9 @@ def create_dfs(df, min_dur: int = 15, roundto: int = 15):
 
     # Add capacity of each component
 
-    site_list, df_list_active, df_list_closed = create_df_list(df)
+    df_list_active, df_list_closed = create_df_list(site_selection)
 
-    # Remove sites that need to be ignored
-    for site in site_list:
-        if "HV Almochuel" in site:
-            site_list.remove(site)
-
-    for site in site_list:
+    for site in site_selection:
         # Create active df for a given site
         df_active = df_active_all.loc[df_active_all['Site Name'] == site]
         df_active = df_active.reset_index(None, drop=True)
@@ -822,14 +853,10 @@ def create_dfs(df, min_dur: int = 15, roundto: int = 15):
             df_closed = mf.impact_inv_blocks(df_closed, aux_df_blocks)"""
         df_list_closed[site] = df_closed
 
-    return site_list, df_list_active, df_list_closed
+    return df_list_active, df_list_closed
 
 
 def create_tracker_dfs(df_all, df_general_info_calc, roundto: int = 15):
-    sites = df_all['Site Name']
-    corrected_sites = [correct_site_name(site) for site in sites]
-    df_all['Site Name'] = corrected_sites
-
     df_tracker_closed = closedtrackerdf(df_all, df_general_info_calc)
     df_tracker_active = activetrackerdf(df_all, df_general_info_calc)
 
@@ -856,28 +883,9 @@ def activetrackerdf(df_15m, df_tracker_info_calc):
     df_15m_tracker["Tracker"] = ['Yes'] * len(df_15m_tracker['Related Component'])
 
     df_15m_tracker['Capacity Related Component'] = [
-        df_tracker_info_calc.loc[correct_site_name(site), 'Avg. capacity per tracker (kW)']
+        df_tracker_info_calc.loc[site, 'Avg. capacity per tracker (kW)']
         for site in df_15m_tracker['Site Name']]
 
-    """for index, row in df_15m.iterrows():
-        rel_comp = df_15m.loc[index, 'Related Component']
-        state = df_15m.loc[index, 'State']
-        site = df_15m.loc[index, 'Site Name']
-        site = correct_site_name(site)
-
-        if 'Tracker' in rel_comp or "TRACKER" in rel_comp:
-            # print(rel_comp)
-            if not 'gateway' in rel_comp:
-                df_15m.loc[index, 'Tracker'] = 'Yes'
-                df_15m.loc[index, 'Capacity Related Component'] = df_tracker_info_calc.loc[
-                    site, 'Avg. capacity per tracker (kW)']
-
-        elif 'Tracker target availability' in state:
-            df_15m.loc[index, 'Tracker'] = 'Yes'
-            df_15m.loc[index, 'Capacity Related Component'] = df_tracker_info_calc.loc[
-                site, 'Avg. capacity per tracker (kW)']
-
-    df_15m_tracker = df_15m.loc[df_15m['Tracker'] == 'Yes']"""
     df_tracker_active = df_15m_tracker.loc[pd.isna(df_15m_tracker['Event End Time'])]
     df_tracker_active = df_tracker_active.reset_index(None, drop=True)
 
@@ -895,70 +903,31 @@ def closedtrackerdf(df_15m, df_tracker_info_calc):
                                 (df_15m["State"] == 'Tracker target availability')]
     df_15m_tracker["Tracker"] = ['Yes'] * len(df_15m_tracker['Related Component'])
 
-    df_15m_tracker['Capacity Related Component'] = [df_tracker_info_calc.loc[correct_site_name(site),
-                                                                             'Avg. capacity per tracker (kW)']
+    df_15m_tracker['Capacity Related Component'] = [df_tracker_info_calc.loc[site, 'Avg. capacity per tracker (kW)']
                                                     for site in df_15m_tracker['Site Name']]
 
-    """
-    for index, row in df_15m.iterrows():
-        rel_comp = df_15m.loc[index, 'Related Component']
-        state = df_15m.loc[index, 'State']
-        site = df_15m.loc[index, 'Site Name']
-        site = correct_site_name(site)
-
-        if 'Tracker' in rel_comp or "TRACKER" in rel_comp:
-            # print(rel_comp)
-            if not 'gateway' in rel_comp:
-                df_15m.loc[index, 'Tracker'] = 'Yes'
-                df_15m.loc[index, 'Capacity Related Component'] = df_tracker_info_calc.loc[
-                    site, 'Avg. capacity per tracker (kW)']
-
-        elif 'Tracker target availability' in state:
-            df_15m.loc[index, 'Tracker'] = 'Yes'
-            df_15m.loc[index, 'Capacity Related Component'] = df_tracker_info_calc.loc[
-                site, 'Avg. capacity per tracker (kW)']
-
-    df_15m_tracker = df_15m.loc[df_15m['Tracker'] == 'Yes']"""
     df_15m_tracker_closed = df_15m_tracker.loc[df_15m_tracker['Event End Time'].notnull()]
+
     df_15m_tracker_dur15m = df_15m_tracker_closed.loc[
         df_15m_tracker_closed['Duration (h)'] > 0.249]  # filter by duration >15 minute
     df_15m_tracker_final = df_15m_tracker_dur15m.reset_index(None, drop=True)  # reset index
 
-    '''for index, row in df_15m_tracker_final.iterrows():
-        time = df_15m_tracker_final.loc[index, 'Event Start Time']
-        if type(time) is datetime:
-            df_15m_tracker_final.loc[index, 'Event Start Time'] = str(time)
-            time = df_15m_tracker_final.loc[index, 'Event Start Time']
-        if ".0" in time:
-            df_15m_tracker_final.loc[index, 'Event Start Time'] = str(time[:-4])
-
-    for index, row in df_15m_tracker_final.iterrows():
-        time = df_15m_tracker_final.loc[index, 'Event End Time']
-        if type(time) is datetime:
-            df_15m_tracker_final.loc[index, 'Event End Time'] = str(time)
-        if "." in time:
-            df_15m_tracker_final.loc[index, 'Event End Time'] = str(time[:-4])'''
-
     return df_15m_tracker_final
 
 
-def create_df_list(df):
+def create_df_list(site_selection):
     """This script creates two dictionaries and a list.
      The dictionaries contain all sites from a given report and their active and closed events dataframes
      The list contains all sites present in the report
 
      Returns site_list, df_list_active, df_list_closed"""
 
-    site_list = df['Site Name']
-    site_list = site_list.drop_duplicates()
-    site_list = site_list.tolist()
-
-    for site in site_list:
-        index_site = site_list.index(site)
+    """for site in site_selection:
+        index_site = site_selection.index(site)
         site = correct_site_name(site)
-        site_list[index_site] = site
+        site_selection[index_site] = site"""
 
-    for site in site_list:
+    for site in site_selection:
         if "LSBP - " in site or "LSBP – " in site:
             onlysite = site[7:]
         else:
@@ -980,8 +949,8 @@ def create_df_list(df):
 
         except NameError:
             df_list_closed = {site: df_name_closed}
-    print(site_list)
-    return site_list, df_list_active, df_list_closed
+
+    return df_list_active, df_list_closed
 
 
 def create_active_events_df(df):
@@ -1116,7 +1085,7 @@ def complete_dataset_inverterops_data(incidents_site, inverter_operation, df_ope
 def complete_dataset_capacity_data(df_list, all_component_data):
     for site in df_list.keys():
         incidents_site = df_list[site]
-        print(type(incidents_site))
+        # print(type(incidents_site))
         if not type(incidents_site) == str:
             for index, row in incidents_site.iterrows():
                 site = row['Site Name']
@@ -1243,7 +1212,6 @@ def comprehensive_description(df):
 
 
 def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracker: bool = False):
-
     if tracker is False:
         site_list = df.keys()
         for site in site_list:
@@ -1261,12 +1229,15 @@ def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracke
                     event_time_hour = end_date.hour
                     event_time_minute = end_date.minute
                     event_time = str(event_time_hour) + ':' + str(event_time_minute)
+
                     if start_date == sunrise_time and duration < 2:
                         description = "• " + str(rel_comp) + ' started late at ~' + str(event_time) + ' (closed)'
                     elif duration > 24:
-                        description = "• " + str(rel_comp) + ' was not producing until ~' + str(event_time) + ' (closed)'
+                        description = "• " + str(rel_comp) + ' was not producing until ~' + str(
+                            event_time) + ' (closed)'
                     else:
-                        description = "• " + str(rel_comp) + ' was not producing for ~' + str(duration) + ' hours (closed)'
+                        description = "• " + str(rel_comp) + ' was not producing on the ' + str(start_date.day) + \
+                                      ' for ~' + str(duration) + ' hours (% of site capacity affected)'
                     df_events.loc[index, 'Comments'] = description
 
                 df[site] = df_events
@@ -1279,7 +1250,7 @@ def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracke
                     day = start_date.day
                     month = start_date.month
                     date = str(day) + '/' + str(month)
-                    description = "• " + str(rel_comp) + ' is not producing (open since ' + date  + ')'
+                    description = "• " + str(rel_comp) + ' is not producing (open since ' + date + ')'
                     df_events.loc[index, 'Comments'] = description
 
                 df[site] = df_events
@@ -1304,6 +1275,7 @@ def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracke
                 df.loc[index, 'Comments'] = description
 
     return df
+
 
 # </editor-fold>
 
@@ -1365,12 +1337,12 @@ def create_fmeca_dataframes_for_validation(fmeca_data):
         (key, "_".join(key).replace(" ", "_").replace("-", "_")) for key in subcategory_fmeca.keys())
 
     fault_component_fmeca = rename_dict_keys(fault_component_fmeca,
-                                                                       fault_component_fmeca_newkeys)
+                                             fault_component_fmeca_newkeys)
 
     failure_mode_fmeca = rename_dict_keys(failure_mode_fmeca, failure_mode_fmeca_newkeys)
 
     failure_mechanism_fmeca = rename_dict_keys(failure_mechanism_fmeca,
-                                                                         failure_mechanism_fmeca_newkeys)
+                                               failure_mechanism_fmeca_newkeys)
 
     category_fmeca = rename_dict_keys(category_fmeca, category_fmeca_newkeys)
 
@@ -1397,90 +1369,93 @@ def create_fmeca_dataframes_for_validation(fmeca_data):
 
 def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = False, simple_match: bool = False,
                               tracker: bool = False):
-
     desired_columns_components = ["ID", "Site Name", "Related Component", "Capacity Related Component",
                                   "Component Status", "Event Start Time", "Event O&M Response Time", "Event End Time",
                                   "Duration (h)", "Active Hours (h)", "Energy Lost (MWh)", "Comments", "Remediation",
                                   "Fault", "Fault Component", "Failure Mode", "Failure Mechanism",
                                   "Category", "Subcategory", "Resolution Category", "Excludable", "Excludable Category",
                                   "Exclusion Rationale", "Incident Status", "Categorization Status"]
+    if not df.empty:
+        if simple_match is False:
+            curtailment_fmeca = fmeca_data.loc[fmeca_data['Failure Mode'] == 'Curtailment']
 
-    if simple_match is False:
-        curtailment_fmeca = fmeca_data.loc[fmeca_data['Failure Mode'] == 'Curtailment']
+            df['Site Name'] = [correct_site_name(name) for name in df['Site Name']]
+            df['Related Component'] = [correct_site_name(name)
+                                       for name in df['Related Component']]
 
-        df['Site Name'] = [correct_site_name(name) for name in df['Site Name']]
-        df['Related Component'] = [correct_site_name(name)
-                                   for name in df['Related Component']]
+            # print(df['Site Name'],df['Related Component'])
 
-        #print(df['Site Name'],df['Related Component'])
+            # Add ID column
+            if "ID" not in df.columns:
+                df = change_times_to_str(df, active=active)
 
-        #Add ID column
-        if "ID" not in df.columns:
-            df = change_times_to_str(df, active=active)
+                # test if all entries to add have an entry on the general info file
+                tuple_list_toadd = list(
+                    set([(row['Site Name'], row['Related Component']) for index, row in df.iterrows()]))
+                tuple_list_componentdata = [(row['Site'], row['Component']) for index, row in component_data.iterrows()]
 
-            # test if all entries to add have an entry on the general info file
-            tuple_list_toadd = list(set([(row['Site Name'], row['Related Component']) for index, row in df.iterrows()]))
-            tuple_list_componentdata = [(row['Site'], row['Component']) for index, row in component_data.iterrows()]
+                does_not_exist = [x for x in tuple_list_toadd if x not in tuple_list_componentdata]
 
-            does_not_exist = [x for x in tuple_list_toadd if x not in tuple_list_componentdata]
+                if not does_not_exist:
+                    df.insert(0, "ID", [component_data.loc
+                                        [(component_data['Site'] == df.loc[index, 'Site Name']) &
+                                         (component_data['Component'] ==
+                                          df.loc[index, 'Related Component'])]['ID'].values[0] + '-' +
+                                        df.loc[index, 'Event Start Time'].replace(" ", "T").replace("-", "").replace(
+                                            ":",
+                                            "")
+                                        for index, row in df.iterrows()])
 
-            if not does_not_exist:
-                df.insert(0, "ID", [component_data.loc
-                                    [(component_data['Site'] == df.loc[index, 'Site Name']) &
-                                     (component_data['Component'] ==
-                                      df.loc[index, 'Related Component'])]['ID'].values[0] + '-' +
-                                    df.loc[index, 'Event Start Time'].replace(" ", "T").replace("-", "").replace(":", "")
-                                    for index, row in df.iterrows()])
+                else:
+                    print(does_not_exist)
+                    print(df.loc[df['Related Component'] == does_not_exist[1]])
+                    """print(tuple_list_toadd)
+                    print(tuple_list_componentdata)"""
+                    sys.exit("These components do not exist in the general info file")
 
-            else:
-                print(does_not_exist)
-                print(df.loc[df['Related Component'] == does_not_exist[1]])
-                """print(tuple_list_toadd)
-                print(tuple_list_componentdata)"""
-                sys.exit("These components do not exist in the general info file")
+        # Add rest of the columns
+        for column in desired_columns_components:
+            if column not in df.columns:
+                df[column] = ""
+            elif column == 'Incident Status':
+                if active is True:
+                    df[column] = "Open"
+                else:
+                    df[column] = "Closed"
+            elif column == 'Categorization Status':
+                if active is True:
+                    df[column] = "Pending"
+                else:
+                    df[column] = ["Pending" if status == "" else status for status in df[column]]
 
-    # Add rest of the columns
-    for column in desired_columns_components:
-        if column not in df.columns:
-            df[column] = ""
-        elif column == 'Incident Status':
-            if active is True:
-                df[column] = "Open"
-            else:
-                df[column] = "Closed"
-        elif column == 'Categorization Status':
-            if active is True:
-                df[column] = "Pending"
-            else:
-                df[column] = ["Pending" if status == "" else status for status in df[column]]
+        df.drop_duplicates(subset=['ID'], inplace=True, ignore_index=True)  # .reset_index(drop=True, inplace=True)
 
-    df.drop_duplicates(subset=['ID'], inplace=True, ignore_index=True)  # .reset_index(drop=True, inplace=True)
+        if simple_match is False and tracker is False:
+            for index, row in df.loc[df['Curtailment Event'] == 'x'].iterrows():
+                df.loc[index, 'Fault'] = curtailment_fmeca['Fault'].values[0]
+                df.loc[index, 'Fault Component'] = curtailment_fmeca['Fault Component'].values[0]
+                df.loc[index, 'Failure Mode'] = curtailment_fmeca['Failure Mode'].values[0]
+                df.loc[index, 'Failure Mechanism'] = curtailment_fmeca['Failure Mechanism'].values[0]
+                df.loc[index, 'Category'] = curtailment_fmeca['Category'].values[0]
+                df.loc[index, 'Subcategory'] = curtailment_fmeca['Subcategory'].values[0]
+                df.loc[index, 'Resolution Category'] = "Reset"
+                df.loc[index, 'Excludable'] = "Yes"
+                df.loc[index, 'Excludable Category'] = "Curtailment"
+                df.loc[index, 'Exclusion Rationale'] = "Curtailment"
+                df.loc[index, 'Incident Status'] = "Closed"
+                df.loc[index, 'Categorization Status'] = "Completed"
+            # print(df['Related Component'])
+            for index, row in df.loc[(df['Related Component'].str.contains('CB|DC|String'))].iterrows():
+                df.loc[index, 'Excludable'] = "Yes"
+                df.loc[index, 'Excludable Category'] = "Sub-Inverter Level"
+                df.loc[index, 'Exclusion Rationale'] = "Sub-Inverter Level"
 
-    if simple_match is False and tracker is False:
-        for index, row in df.loc[df['Curtailment Event'] == 'x'].iterrows():
-            df.loc[index, 'Fault'] = curtailment_fmeca['Fault'].values[0]
-            df.loc[index, 'Fault Component'] = curtailment_fmeca['Fault Component'].values[0]
-            df.loc[index, 'Failure Mode'] = curtailment_fmeca['Failure Mode'].values[0]
-            df.loc[index, 'Failure Mechanism'] = curtailment_fmeca['Failure Mechanism'].values[0]
-            df.loc[index, 'Category'] = curtailment_fmeca['Category'].values[0]
-            df.loc[index, 'Subcategory'] = curtailment_fmeca['Subcategory'].values[0]
-            df.loc[index, 'Resolution Category'] = "Reset"
-            df.loc[index, 'Excludable'] = "Yes"
-            df.loc[index, 'Excludable Category'] = "Curtailment"
-            df.loc[index, 'Exclusion Rationale'] = "Curtailment"
-            df.loc[index, 'Incident Status'] = "Closed"
-            df.loc[index, 'Categorization Status'] = "Completed"
-        print(df['Related Component'])
-        for index, row in df.loc[(df['Related Component'].str.contains('CB|DC|String'))].iterrows():
-            df.loc[index, 'Excludable'] = "Yes"
-            df.loc[index, 'Excludable Category'] = "Sub-Inverter Level"
-            df.loc[index, 'Exclusion Rationale'] = "Sub-Inverter Level"
+        df.drop(columns=df.columns.difference(desired_columns_components), inplace=True)
 
-    df.drop(columns=df.columns.difference(desired_columns_components), inplace=True)
-
-    df_final = df[desired_columns_components]
+        df_final = df[desired_columns_components]
+    else:
+        df_final = pd.DataFrame(columns=desired_columns_components)
 
     return df_final
-
 
 # </editor-fold>

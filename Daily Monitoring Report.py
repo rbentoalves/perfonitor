@@ -1,6 +1,6 @@
 import PySimpleGUI as sg
-import perfonitor.file_creation as file_creation
 import os
+import file_creation as file_creation
 
 def main():
     sg.theme('DarkAmber')  # Add a touch of color
@@ -17,17 +17,17 @@ def main():
         if event == sg.WIN_CLOSED or event == 'Exit':  # if user closes window or clicks exit
             break
         if event == 'Create Incidents List':
-            incidents_file, tracker_incidents_file, site_list, geography, date, df_component_code =\
+            incidents_file, tracker_incidents_file, site_list, geography, date, all_component_data =\
                 file_creation.dmrprocess1()
 
         if event == 'Create final report':
             try:
                 dmr_report = \
-                    file_creation.dmrprocess2(incidents_file, tracker_incidents_file, site_list, geography, date)
-                # dmr_report = dmrprocess2_fromscratch.main(incidents_file,tracker_incidents_file, site_list, geography, date)
+                    file_creation.dmrprocess2_new(incidents_file, tracker_incidents_file, site_list, geography, date)
+
             except NameError:
-                dmr_report = file_creation.dmrprocess2()
-                # dmr_report = dmrprocess2_fromscratch.main()
+                dmr_report = file_creation.dmrprocess2_new()
+
             if dmr_report:
                 event, values = sg.Window('Choose an option', [[sg.Text('Process complete, open file?')],
                                                                [sg.Button('Yes'), sg.Button('Cancel')]]).read(close=True)

@@ -136,81 +136,90 @@ def input_time_operation_site(site, date):
     return stime, etime
 
 
-def choose_period_of_analysis(granularity_avail, month_analysis: int = 1, year_analysis: int = 0):
+def choose_period_of_analysis(granularity_avail, date: str = "", year_analysis: int = 0):
     """ input: option = ["mtd", "ytd", "monthly", "choose"], month_analysis, year_analysis
 
     output: start_date, end_date
     """
 
-    possible_granularity_avail = ["mtd", "ytd", "monthly", "choose"]
+    possible_granularity_avail = ["mtd", "ytd", "monthly", "choose", "day"]
     current_day = (datetime.now()).day
+    if not len(date) == 0:
+        print(date, " ", type(date))
+        date_start_str = date_end_str = str(date)
 
-    if current_day == 1:
-        actual_date = datetime.now() - dt.timedelta(days=1)
-        year = actual_date.year
-        month = actual_date.month
-        day = actual_date.day
     else:
-        year = datetime.now().year
-        month = datetime.now().month
-        day = current_day
-
-    if granularity_avail == "mtd":
-
-        date_start_str = str(year) + "-" + str(month) + "-01"
-        if day < 10 and month < 10:
-            date_end_str = str(year) + "-0" + str(month) + "-0" + str(day)
-        elif day < 10:
-            date_end_str = str(year) + "-" + str(month) + "-0" + str(day)
-        elif month < 10:
-            date_start_str = str(year) + "-0" + str(month) + "-01"
-            date_end_str = str(year) + "-0" + str(month) + "-" + str(day)
+        if current_day == 1:
+            actual_date = datetime.now() - dt.timedelta(days=1)
+            year = actual_date.year
+            month = actual_date.month
+            day = actual_date.day
         else:
-            date_end_str = str(year) + "-" + str(month) + "-" + str(day)
+            year = datetime.now().year
+            month = datetime.now().month
+            day = current_day
 
-    elif granularity_avail == "ytd":
+        if granularity_avail == "mtd":
 
-        date_start_str = str(year) + "-01-01"
-        if month < 10:
-            month = "0" + str(month)
+            date_start_str = str(year) + "-" + str(month) + "-01"
+            if day < 10 and month < 10:
+                date_end_str = str(year) + "-0" + str(month) + "-0" + str(day)
+            elif day < 10:
+                date_end_str = str(year) + "-" + str(month) + "-0" + str(day)
+            elif month < 10:
+                date_start_str = str(year) + "-0" + str(month) + "-01"
+                date_end_str = str(year) + "-0" + str(month) + "-" + str(day)
+            else:
+                date_end_str = str(year) + "-" + str(month) + "-" + str(day)
 
-        if day < 10:
-            date_end_str = str(year) + "-" + str(month) + "-0" + str(day)
+        elif granularity_avail == "ytd":
+
+            date_start_str = str(year) + "-01-01"
+            if month < 10:
+                month = "0" + str(month)
+
+            if day < 10:
+                date_end_str = str(year) + "-" + str(month) + "-0" + str(day)
+            else:
+                date_end_str = str(year) + "-" + str(month) + "-" + str(day)
+
+        elif granularity_avail == "monthly":
+            date_start_str = input_date(startend="start")
+            date_start = datetime.strptime(date_start_str, '%Y-%m-%d')
+
+            if year_analysis != 0:
+                year = year_analysis
+            else:
+                year = date_start.year
+
+            month = date_start.month
+            if month < 12:
+                day_end = (dt.date(year, month+1, 1) - dt.timedelta(days=1)).day
+            else:
+                day_end = 31
+
+            if 10 > month > 0:
+                month = "0" + str(month)
+            elif 10 <= month <= 12:
+                pass
+            else:
+                print("Month chosen invalid, you chose: " + str(month) + " \n please chose a number between 1 and 12")
+
+            date_start_str = str(year) + "-" + str(month) + "-01"
+            date_end_str = str(year) + "-" + str(month) + "-" + str(day_end)
+
+        elif granularity_avail == "choose":
+            date_start_str = input_date(startend="start")
+            date_end_str = input_date(startend="end")
+            # using custom start dates
+
+        elif granularity_avail == "day":
+            date_start_str = date_end_str = input_date(startend="start")
+            # using custom start dates
+
         else:
-            date_end_str = str(year) + "-" + str(month) + "-" + str(day)
-
-    elif granularity_avail == "monthly":
-        date_start_str = input_date(startend="start")
-        date_start = datetime.strptime(date_start_str, '%Y-%m-%d')
-
-        if year_analysis != 0:
-            year = year_analysis
-        else:
-            year = date_start.year
-
-        month = date_start.month
-        if month < 12:
-            day_end = (dt.date(year, month+1, 1) - dt.timedelta(days=1)).day
-        else:
-            day_end = 31
-
-        if 10 > month > 0:
-            month = "0" + str(month)
-        elif 10 <= month <= 12:
-            pass
-        else:
-            print("Month chosen invalid, you chose: " + str(month) + " \n please chose a number between 1 and 12")
-
-        date_start_str = str(year) + "-" + str(month) + "-01"
-        date_end_str = str(year) + "-" + str(month) + "-" + str(day_end)
-
-    elif granularity_avail == "choose":
-        date_start_str = input_date(startend="start")
-        date_end_str = input_date(startend="end")
-        # using custom start dates
-    else:
-        print(
-            "Invalid input from period of availability calculation. You entered: " + str(granularity_avail) + ". \n Please choose one of the following ['mtd', 'ytd', 'custom', 'choose'].")
+            print("Invalid input from period of availability calculation. You entered: " + str(granularity_avail) +
+                  ". \n Please choose one of the following ['mtd', 'ytd', 'custom', 'choose'].")
 
     return date_start_str, date_end_str
 
@@ -428,6 +437,7 @@ def new_event_tracker():
 
 
 def update_event_tracker():
+    username = os.getlogin()
     sg.theme('DarkAmber')  # Add a touch of color
     # All the stuff inside your window.
 
@@ -441,12 +451,9 @@ def update_event_tracker():
                sg.In(key='-SCAL-', text_color='black', size=(16, 1), enable_events=True, readonly=True, visible=True),
                sg.Checkbox('Multiple reports', enable_events=True, size=(13, 1), key='chk_multr')],
               [collapse(end_date_calendar_section, '-EXCAL-', False)],
-              [sg.Text('Choose Event Tracker to update', pad=((0, 10), (10, 2)))],
-              [sg.FileBrowse(target='-ETFILE-'),
-               sg.In(key='-ETFILE-', text_color='black', size=(20, 1), enable_events=True, readonly=True,
-                     visible=True)],
-              [sg.Text('Choose location folder of DMRs', pad=((0, 10), (10, 2)))],
-              [sg.FolderBrowse(target='-DMRFOLDER-'),
+              [sg.Text('Choose source from Desktop', pad=((0, 10), (10, 2)))],
+              [sg.FolderBrowse(target='-DMRFOLDER-', initial_folder="C:/Users/" + username +
+                                                                    "/OneDrive - Lightsource BP/Desktop"),
                sg.In(key='-DMRFOLDER-', text_color='black', size=(20, 1), enable_events=True, readonly=True,
                      visible=True)],
               [sg.Text('Enter geography ', pad=((0, 10), (10, 2))), sg.Push(),
@@ -485,9 +492,9 @@ def update_event_tracker():
         if event == 'Submit':
             date_start = values['-SCAL-']  # date is string
             date_end = values['-ECAL-']
-            event_tracker_path = values['-ETFILE-']
-            dmr_folder = values['-DMRFOLDER-']
             geography = values['-GEO-']
+            dmr_folder = values['-DMRFOLDER-'] + "/" + geography
+            event_tracker_path = dmr_folder + "/Event Tracker/Event Tracker " + geography + ".xlsx"
 
             if date_end == "":
                 date_end = None
@@ -601,7 +608,8 @@ def underperformance_report():
                            key='chk_recalc')],
               [sg.Text('Select level of analysis', pad=((0, 10), (10, 2))), sg.Push(),
                sg.Text('Select Irradiance Threshold', pad=((0, 10), (10, 2))), sg.Push()],
-              [sg.Combo(['All', 'Inverter level', 'Inverter only'], default_value="All", size=(11, 3), readonly=True,
+              [sg.Combo(['All', 'Inverter level', 'Inverter only', 'No Inverter Modules'], default_value="All",
+                        size=(18, 3), readonly=True,
                         key='-LVL-', pad=((5, 10), (2, 10))),
                sg.Combo([20, 50, 85, 100], default_value=50, size=(11, 3), readonly=True, key='-THR-',
                         pad=((50, 10), (2, 10)))],
