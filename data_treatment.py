@@ -819,8 +819,7 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
 
     Returns site_list,df_list_active, df_list_closed"""
 
-    df_closed_all = filter_notprod_and_duration(df,
-                                                min_dur)  # creates dataframe with closed, not producing incidents with a minimum specified duration
+    df_closed_all = filter_notprod_and_duration(df, min_dur)  # creates dataframe with closed, not producing incidents with a minimum specified duration
     df_closed_all = remove_milliseconds(df_closed_all, end_time=True)  # removes milliseconds
     # append_df_to_excel('test.xlsx', df_closed_all, sheet_name='test')
 
