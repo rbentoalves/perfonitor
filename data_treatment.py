@@ -831,14 +831,6 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
 
     # Add capacity of each component
     site_list, df_list_active, df_list_closed = create_df_list(df)
-    
-    # Remove sites that need to be ignored
-    for site in site_list:
-        if "HV Almochuel" in site:
-            site_list.remove(site)
-
-    for site in site_list:
-        df_list_active, df_list_closed = create_df_list(site_selection)
 
     for site in site_selection:
         # Create active df for a given site
