@@ -5,7 +5,7 @@ import re
 import os
 import PySimpleGUI as sg
 import statistics
-import perfonitor.data_treatment as data_treatment
+import data_treatment as data_treatment
 
 
 def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, previous_dmr_path):
@@ -66,10 +66,11 @@ def read_general_info(general_info_path):
     df_general_info_calc = pd.read_excel(general_info_path, sheet_name='Site Info', index_col=0, engine="openpyxl")
     all_component_data = pd.read_excel(general_info_path, sheet_name='Component Code', index_col=0, engine="openpyxl")
 
+
     return df_general_info, df_general_info_calc, all_component_data
 
 
-def read_time_of_operation(irradiance_df, Report_template_path, withmean: bool = False):
+def read_time_of_operation_old(irradiance_df, Report_template_path, withmean: bool = False):
 
     df_info_capacity = pd.read_excel(Report_template_path, sheet_name='Info', engine="openpyxl")
 
@@ -212,6 +213,141 @@ def read_time_of_operation(irradiance_df, Report_template_path, withmean: bool =
     return df_info_sunlight, irradiance_file_data_notcurated
 
 
+def read_time_of_operation_new(irradiance_df, site_list, df_general_info, withmean: bool = False):
+
+    irradiance_df = irradiance_df.loc[:, ~irradiance_df.columns.str.contains('^Unnamed')]
+    irradiance_df = irradiance_df[:-1]    # removes last timestamp of dataframe, since it's always the next day
+
+    irradiance_df['day'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S').day
+                            for timestamp in irradiance_df['Timestamp']]
+    only_days = irradiance_df['day'].drop_duplicates().tolist()
+
+    irradiance_file_data_curated = irradiance_df.loc[:, irradiance_df.columns.str.contains('curated')]
+
+    irradiance_file_data_notcurated = irradiance_df.loc[:, ~irradiance_df.columns.str.contains('curated')]
+    irradiance_file_data_poaaverage = irradiance_file_data_notcurated.loc[:,
+                                      irradiance_file_data_notcurated.columns.str.contains('Average')]
+
+    # irradiance_file_data_meteostation = irradiance_df.loc[:, irradiance_df.columns.str.contains('Meteo')]
+
+    for column in irradiance_file_data_poaaverage.columns:
+        dict_timeofops = {}
+        dict_timeofops_seconds = {}
+
+        only_name_site = re.search(r'\[.+\]', column).group().replace('[', "").replace(']', "")
+        only_name_site = data_treatment.correct_site_name(only_name_site)
+
+        print(only_name_site)
+
+        capacity = float(df_general_info.loc[df_general_info['Site'] == only_name_site]['Nominal Power DC'])
+
+        # Get curated data
+        if only_name_site in site_list:
+            try:
+                curated_column = irradiance_file_data_curated.loc[:,
+                                 irradiance_file_data_curated.columns.str.contains(only_name_site)].columns[0]
+            except IndexError:
+                curated_column = column
+
+            if not column == 'Timestamp' and not column == 'day':
+                data = irradiance_df[['Timestamp', curated_column, 'day']]
+            else:
+                continue
+
+            backup_data = irradiance_df[['Timestamp', column, 'day']]
+            dict_timeofops['Site'] = only_name_site
+
+            for day in only_days:
+                print("Day under analysis: " + str(day))
+                data_day = data.loc[data['day'] == day].reset_index()
+                entire_day = data['Timestamp'][0]
+                entire_day = datetime.strptime(str(entire_day), '%Y-%m-%d %H:%M:%S').date()
+
+                #print(entire_day)
+
+                try:
+                    stime_index = next(i for i, v in enumerate(data_day[curated_column]) if v > 20)
+                    etime_index = next(i for i, v in reversed(list(enumerate(data_day[curated_column]))) if v > 20)
+
+                    stime = data_day['Timestamp'][stime_index]
+                    etime = data_day['Timestamp'][etime_index]
+
+                    # Verify Hours read------------------------------
+                    stime, etime = data_treatment.verify_read_time_of_operation(only_name_site, entire_day, stime, etime)
+
+                    # -------------------------------------------------
+
+                except StopIteration:
+                    print('No data on the ' + str(entire_day))
+                    try:
+                        stime_index = next(i for i, v in enumerate(backup_data[column]) if v > 20)
+                        etime_index = next(i for i, v in reversed(list(enumerate(backup_data[column]))) if v > 20)
+
+                        stime = data_day['Timestamp'][stime_index]
+                        #print(stime)
+                        etime = data_day['Timestamp'][etime_index]
+                        #print(etime)
+
+                        #print('Verify 2')
+
+                        stime, etime = data_treatment.verify_read_time_of_operation(only_name_site, entire_day, stime, etime)
+
+                    except StopIteration:
+                        print('No backup data on the ' + str(entire_day))
+                        stime, etime = inputs.input_time_operation_site(only_name_site, str(entire_day))
+
+                if type(stime) == str:
+                    stime = datetime.strptime(stime, '%Y-%m-%d %H:%M:%S')
+                if type(etime) == str:
+                    etime = datetime.strptime(etime, '%Y-%m-%d %H:%M:%S')
+
+                dict_timeofops['Capacity'] = [capacity]
+                dict_timeofops['Time of operation start'] = [stime]
+                dict_timeofops['Time of operation end'] = [etime]
+
+                df_timeofops = pd.DataFrame.from_dict(dict_timeofops)
+                # df_timeofops = df_timeofops.set_index('Site')
+
+                try:
+                    df_all = df_all.append(df_timeofops)
+                except (UnboundLocalError, NameError):
+                    df_all = df_timeofops
+
+    df_info_sunlight = df_all.reset_index(drop=True)
+    print(df_info_sunlight)
+
+    if withmean is True:
+        df_all = df_all.set_index('Site')
+        stime_columns = df_all.columns[df_all.columns.str.contains('sunrise')].tolist()
+        etime_columns = df_all.columns[df_all.columns.str.contains('sunset')].tolist()
+
+        stime_data = df_all.loc[:, stime_columns]
+        etime_data = df_all.loc[:, etime_columns]
+
+        for index, row in stime_data.iterrows():
+            timestamps = row.tolist()
+            timestamps_datetime = [datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S') for timestamp in timestamps if
+                                   timestamp != 'No data']
+            in_seconds = [(i.hour * 3600 + i.minute * 60 + i.second) for i in timestamps_datetime if i != 'No data']
+            average_in_seconds = int(statistics.mean(in_seconds))
+            average_in_hours = datetime.fromtimestamp(average_in_seconds - 3600).strftime("%H:%M:%S")
+
+            df_all.loc[index, 'Mean Start Time'] = average_in_hours
+
+        for index, row in etime_data.iterrows():
+            timestamps = row.tolist()
+            timestamps_datetime = [datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S') for timestamp in timestamps if
+                                   timestamp != 'No data']
+            in_seconds = [(i.hour * 3600 + i.minute * 60 + i.second) for i in timestamps_datetime if i != 'No data']
+            average_in_seconds = int(statistics.mean(in_seconds))
+            average_in_hours = datetime.fromtimestamp(average_in_seconds - 3600).strftime("%H:%M:%S")
+
+            df_all.loc[index, 'Mean End Time'] = average_in_hours
+        df_info_sunlight = df_all
+
+    return df_info_sunlight, irradiance_file_data_notcurated
+
+
 def get_filename_folder():
     sg.theme('DarkAmber')  # Add a touch of color
     # All the stuff inside your window.
@@ -250,6 +386,15 @@ def get_filename_folder():
 
     return file_path, filename, folder, extension
 
+def read_irradiance_export(irradiance_file_path, export_file_path):
+    
+    irradiance_df = pd.read_excel(irradiance_file_path, engine="openpyxl")
+    irradiance_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in irradiance_df["Timestamp"]]
+
+    export_df = pd.read_excel(export_file_path, engine="openpyxl")
+    export_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in export_df["Timestamp"]]
+
+    return irradiance_df, export_df 
 
 def read_approved_incidents(incidents_file, site_list, roundto: int = 15):
     for site in site_list:
@@ -325,6 +470,7 @@ def get_files_to_add(date_start, date_end, dmr_folder, geography, no_update: boo
 
         irradiance_folder = dmr_folder + "/Irradiance " + geography
         export_folder = dmr_folder + "/Exported Energy " + geography
+        folder_content = os.listdir(dmr_folder)
 
         for date in date_list:
             #Get date info for name
@@ -333,11 +479,17 @@ def get_files_to_add(date_start, date_end, dmr_folder, geography, no_update: boo
             year = str(date.year)
 
             #Get each of the files to be used in each day
-            report_file = dmr_folder + '/Reporting_' + geography + '_Sites_' + str(day) + "-" + str(month) + '.xlsx'  # will be picked by user
+            report_file_prefix = 'Reporting_' + geography + '_Sites_' + str(date.date()).replace("-","")
+            report_file_list = [dmr_folder + '/' + file for file in folder_content if report_file_prefix in file]
+
             irradiance_file = irradiance_folder + '/Irradiance_' + geography + '_Curated&Average-' + year + month + str(day) + '.xlsx'  # will be picked by user
             export_file = export_folder + '/Energy_Exported_' + geography + '_' + year + month + str(day) + '.xlsx'  # will be picked by user
 
-            report_files_dict[date] = report_file
+            index_file = 1
+            for file in report_file_list:
+                report_files_dict[str(date) + str(index_file)] = file
+                index_file += 1
+
             irradiance_dict[date] = irradiance_file
             export_dict[date] = export_file
 
@@ -349,7 +501,6 @@ def get_files_to_add(date_start, date_end, dmr_folder, geography, no_update: boo
         all_export_file = export_folder + '/All_Energy_Exported_' + geography + '.xlsx'  # will be picked by use
         general_info_path = dmr_folder + '/Info&Templates/General Info ' + geography + '.xlsx'  # will be picked by script
 
-
         return report_files, irradiance_files, export_files, all_irradiance_file, all_export_file, general_info_path
 
     else:
@@ -360,15 +511,23 @@ def get_files_to_add(date_start, date_end, dmr_folder, geography, no_update: boo
         all_export_file = export_folder + '/All_Energy_Exported_' + geography + '.xlsx'  # will be picked by use
         general_info_path = dmr_folder + '/Info&Templates/General Info ' + geography + '.xlsx'  # will be picked by script
 
-
         return all_irradiance_file, all_export_file, general_info_path
+
 
 def get_general_info_dataframes(general_info_path):
     # Read general info file
-    all_component_data = pd.read_excel(general_info_path, sheet_name='Component Code', engine='openpyxl')
-    budget_irradiance = pd.read_excel(general_info_path, sheet_name='Budget Irradiance', index_col=0, engine='openpyxl')
-    budget_pr = pd.read_excel(general_info_path, sheet_name='Budget PR', index_col=0, engine='openpyxl')
-    budget_export = pd.read_excel(general_info_path, sheet_name='Budget Export', index_col=0, engine='openpyxl')
+    general_info = pd.read_excel(general_info_path, sheet_name=['Site Info', 'Component Code'], engine='openpyxl')
+
+    general_info_budgets = pd.read_excel(general_info_path, sheet_name=['Budget Irradiance', 'Budget PR',
+                                                                        'Budget Export'], index_col=0, engine='openpyxl')
+
+    all_component_data = general_info['Component Code']
+    all_site_info = general_info['Site Info'].set_index('Site')
+
+    budget_irradiance = general_info_budgets['Budget Irradiance']
+    budget_pr = general_info_budgets['Budget PR']
+    budget_export = general_info_budgets['Budget Export']
+
 
     # Separate data
     component_data = all_component_data.loc[
@@ -382,7 +541,8 @@ def get_general_info_dataframes(general_info_path):
     fleet_capacity = site_capacities['Nominal Power DC'].sum()
 
 
-    return component_data,tracker_data,fmeca_data,site_capacities,fleet_capacity,budget_irradiance,budget_pr,budget_export
+    return component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info
+
 
 def get_dataframes_to_add_to_EventTracker(report_files,event_tracker_file_path, fmeca_data,
                                           component_data, tracker_data):

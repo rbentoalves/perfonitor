@@ -8,10 +8,11 @@ import sys
 import PySimpleGUI as sg
 import openpyxl
 import xlsxwriter
-import perfonitor.data_acquisition as data_acquisition
-import perfonitor.inputs as inputs
-import perfonitor.data_treatment as data_treatment
-import perfonitor.data_analysis as data_analysis
+import calculations as calculations
+import data_acquisition as data_acquisition
+import inputs as inputs
+import data_treatment as data_treatment
+import data_analysis as data_analysis
 
 
 #File creation/edit/removal-------------------------------------------------------------------------------------
@@ -71,31 +72,31 @@ def add_tracker_incidents_to_excel(dest_tracker_file, df_tracker_active, df_trac
     return
 
 
-def add_events_to_final_report(reportfile, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed):
+def add_events_to_final_report(reportfile_path, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed):
 
     final_active_events_list = pd.concat(list(df_list_active.values()))
     final_closed_events_list = pd.concat(list(df_list_closed.values()))
 
     if not final_active_events_list.empty:
-        append_df_to_excel(reportfile, final_active_events_list, sheet_name='Active Events', startrow=0)
+        append_df_to_excel(reportfile_path, final_active_events_list, sheet_name='Active Events', startrow=0)
         print('Active events added')
     else:
         print('No active events to be added')
 
     if not final_closed_events_list.empty:
-        append_df_to_excel(reportfile, final_closed_events_list, sheet_name='Closed Events', startrow=0)
+        append_df_to_excel(reportfile_path, final_closed_events_list, sheet_name='Closed Events', startrow=0)
         print('Closed events added')
     else:
         print('No closed events to be added')
 
     if not df_tracker_active.empty:
-        append_df_to_excel(reportfile, df_tracker_active, sheet_name='Active tracker incidents', startrow=0)
+        append_df_to_excel(reportfile_path, df_tracker_active, sheet_name='Active tracker incidents', startrow=0)
         print('Tracker active events added')
     else:
         print('No tracker active events to be added')
 
     if not df_tracker_closed.empty:
-        append_df_to_excel(reportfile, df_tracker_closed, sheet_name='Closed tracker incidents', startrow=0)
+        append_df_to_excel(reportfile_path, df_tracker_closed, sheet_name='Closed tracker incidents', startrow=0)
         print('Tracker closed events added')
     else:
         print('No tracker closed events to be added')
@@ -160,39 +161,39 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
 
     #READ FILES AND EXTRACT RAW DATAFRAMES
     print('Reading Daily Alarm Report...')
-    df_all, incidents_file, tracker_incidents_file, irradiance_file_data, prev_active_events, \
-    prev_active_tracker_events = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, 
-                                                                          previous_dmr_path)
-
+    df_all, incidents_file, tracker_incidents_file, irradiance_df, prev_active_events, prev_active_tracker_events \
+        = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path,
+                                                   previous_dmr_path)
     print('Daily Alarm Report read!')
     print('newfile: ' + incidents_file)
     print('newtrackerfile: ' + tracker_incidents_file)
-    print(df_all)
     print('Reading trackers info...')
     df_general_info, df_general_info_calc, all_component_data = data_acquisition.read_general_info(general_info_path)
     print('Trackers info read!')
 
     # DIVIDE RAW DATAFRAMES INTO LIST OF DATAFRAMES BY SITE
+    print('Filtering incidents list for site selection...')
+    df_all = data_treatment.filter_site_selection(df_all, site_selection)
     print('Creating incidents dataframes list...')
-    site_list, df_list_active, df_list_closed = data_treatment.create_dfs(df_all, site_selection, min_dur=1, roundto=1)
+    df_list_active, df_list_closed = data_treatment.create_dfs(df_all, site_selection, min_dur=1, roundto=1)
     print('Incidents dataframes list created')
     print('Creating tracker dataframes...')
     df_tracker_active, df_tracker_closed = data_treatment.create_tracker_dfs(df_all, df_general_info_calc, roundto=1)
     print('Tracker dataframes created')
     print('Please set time of operation')
-    df_info_sunlight, final_irradiance_data = data_acquisition.read_time_of_operation(irradiance_file_data,
-                                                                     report_template_path, withmean=False)
+    df_info_sunlight, final_irradiance_data = data_acquisition.read_time_of_operation_new(irradiance_df, site_selection,
+                                                                                       df_general_info, withmean=False)
 
     #df_info_sunlight = msp.set_time_of_operation(Report_template_path, site_list, date)
     print('Removing incidents occurring after sunset')
-    df_list_closed = data_treatment.remove_after_sunset_events(site_list, df_list_closed, df_info_sunlight)
-    df_list_active = data_treatment.remove_after_sunset_events(site_list, df_list_active,
+    df_list_closed = data_treatment.remove_after_sunset_events(site_selection, df_list_closed, df_info_sunlight)
+    df_list_active = data_treatment.remove_after_sunset_events(site_selection, df_list_active,
                                                                df_info_sunlight, active_df=True)
 
-    df_tracker_closed = data_treatment.remove_after_sunset_events(site_list, df_tracker_closed,
+    df_tracker_closed = data_treatment.remove_after_sunset_events(site_selection, df_tracker_closed,
                                                                   df_info_sunlight, tracker=True)
 
-    df_tracker_active = data_treatment.remove_after_sunset_events(site_list, df_tracker_active,
+    df_tracker_active = data_treatment.remove_after_sunset_events(site_selection, df_tracker_active,
                                                                   df_info_sunlight,active_df=True, tracker=True)
     print('Adding component capacities')
     # ADD CAPACITIES TO DFS
@@ -207,13 +208,13 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
 
     print('Creating Incidents file...')
     print(incidents_file)
-    add_incidents_to_excel(incidents_file, site_list, df_list_active, df_list_closed, df_info_sunlight, final_irradiance_data)
+    add_incidents_to_excel(incidents_file, site_selection, df_list_active, df_list_closed, df_info_sunlight, final_irradiance_data)
     print('Incidents file created!')
     print('Creating tracker incidents file...')
     add_tracker_incidents_to_excel(tracker_incidents_file, df_tracker_active, df_tracker_closed, df_general_info)
     print('Tracker incidents file created!')
 
-    return incidents_file, tracker_incidents_file, site_list, all_component_data
+    return incidents_file, tracker_incidents_file, all_component_data
 
 
 def dmrprocess1(site_selection: list = []):
@@ -240,7 +241,7 @@ def dmrprocess1(site_selection: list = []):
 
         if event == sg.WIN_CLOSED or event == 'Exit':  # if user closes window or clicks exit
             window.close()
-            return "No File", "No File", ["No site list"],"PT", "27-03-1996"
+            return "No File", "No File", ["No site list"],"PT", "27-03-1996", "No Data"
 
         if event == 'Create Incidents List':
             date = values['-CAL-']  # date is string
@@ -261,11 +262,11 @@ def dmrprocess1(site_selection: list = []):
             if "Daily" and "Alarm" and "Report" in Alarm_report_path and geography == geography_report and\
                     "Irradiance" in irradiance_file_path:
 
-                incidents_file, tracker_incidents_file, site_list, all_component_data = dmr_create_incidents_files(
+                incidents_file, tracker_incidents_file, all_component_data = dmr_create_incidents_files(
                     Alarm_report_path,irradiance_file_path, geography, date, site_selection)
                 sg.popup('All incident files are ready for approval', no_titlebar=True)
                 window.close()
-                return incidents_file, tracker_incidents_file, site_list, geography, date,all_component_data
+                return incidents_file, tracker_incidents_file, geography, date, all_component_data
 
             elif not geography == geography_report:
                 msg = 'Selected Geography ' + geography + ' does not match geography from report ' + geography_report
@@ -302,7 +303,7 @@ def dmrprocess2(incidents_file="No File", tracker_incidents_file="No File",
 
 
     #Reset Report Template to create new report
-    reportfile = data_treatment.reset_final_report(reportfiletemplate, date, geography)
+    reportfile_path = data_treatment.reset_final_report(reportfiletemplate, date, geography)
 
     #Read Active and Closed Events
     df_list_active, df_list_closed = data_acquisition.read_approved_incidents(incidents_file, site_list, roundto=1)
@@ -321,7 +322,7 @@ def dmrprocess2(incidents_file="No File", tracker_incidents_file="No File",
     print(df_tracker_closed.columns)
 
     #Add Events to Report File
-    add_events_to_final_report(reportfile, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed)
+    add_events_to_final_report(reportfile_path, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed)
 
     #-------------------------------Analysis on Components Failures---------------------------------
     #Read and update the timestamps on the analysis dataframes
@@ -336,15 +337,16 @@ def dmrprocess2(incidents_file="No File", tracker_incidents_file="No File",
         df_tracker_analysis, df_tracker_closed,df_tracker_active, df_info_sunlight)
 
     #Add Analysis to excel file
-    add_analysis_to_reportfile(reportfile, df_incidents_analysis_final, df_tracker_analysis_final, df_info_sunlight)
+    add_analysis_to_reportfile(reportfile_path, df_incidents_analysis_final, df_tracker_analysis_final, df_info_sunlight)
 
 
-    return reportfile
+    return reportfile_path
 
 
-def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File",
-                site_list=["No site list"], geography="PT", date="27-03-1996"):
+def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", site_list=["No site list"],
+                    geography="PT", date="1996-03-27"):
 
+    period = "day"
     sg.theme('DarkAmber')  # Add a touch of color
     if incidents_file == "No File" or tracker_incidents_file == "No File":
         sg.popup('No files or site list available, please select them', no_titlebar=True)
@@ -353,18 +355,23 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File",
             return None
     else:
         print("Incidents file: " + incidents_file + "\nTracker Incidents file: " + tracker_incidents_file)
-    print(date)
-    dir = os.path.dirname(incidents_file)
-    reportfiletemplate = dir + '/Info&Templates/Reporting_'+ geography +'_Sites_' + 'Template.xlsx'
-    general_info_path = dir +  '/Info&Templates/General Info ' + geography + '.xlsx'
-    irradiance_file_path = dir +  '/Irradiance ' + geography + '/Irradiance_' + geography + '_Curated&Average-' + date.replace("-","") +  '.xlsx'
-    export_file_path = dir + '/Exported Energy ' + geography + '/Energy_Exported_' + geography + '_' + date.replace("-","") + '.xlsx'
 
-    print(irradiance_file_path)
+    main_dir = os.path.dirname(incidents_file)
+    username = os.getlogin()
 
+    dest_file = main_dir + '//Reporting_'+ geography + '_Sites_' + date.replace("-","") + "_" + username + '.xlsx'
+    general_info_path = main_dir + '/Info&Templates/General Info ' + geography + '.xlsx'
+    irradiance_file_path = main_dir + '/Irradiance ' + geography + '/Irradiance_' + geography + '_Curated&Average-' + \
+                           date.replace("-","") +  '.xlsx'
+    export_file_path = main_dir + '/Exported Energy ' + geography + '/Energy_Exported_' + geography + '_' + \
+                       date.replace("-","") + '.xlsx'
 
     #Read irradiance and export files
     irradiance_df, export_df = data_acquisition.read_irradiance_export(irradiance_file_path, export_file_path)
+
+    #Read general info files
+    component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irr, budget_pr, budget_export, \
+    all_site_info = data_acquisition.get_general_info_dataframes(general_info_path)
 
     #Read Active and Closed Events
     df_list_active, df_list_closed = data_acquisition.read_approved_incidents(incidents_file, site_list, roundto=1)
@@ -374,36 +381,374 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File",
     df_info_sunlight = pd.read_excel(incidents_file, sheet_name='Info', engine="openpyxl")
     df_info_sunlight['Time of operation start'] = df_info_sunlight['Time of operation start'].dt.round(freq='s')
     df_info_sunlight['Time of operation end'] = df_info_sunlight['Time of operation end'].dt.round(freq='s')
-    
 
-    #Describe Incidents
+
+    # <editor-fold desc="Describe Incidents">
     df_list_active = data_treatment.describe_incidents(df_list_active, df_info_sunlight, active_events=True, tracker=False)
     df_list_closed = data_treatment.describe_incidents(df_list_closed, df_info_sunlight, active_events=False, tracker=False)
     df_tracker_active = data_treatment.describe_incidents(df_tracker_active, df_info_sunlight, active_events=True, tracker=True)
     df_tracker_closed = data_treatment.describe_incidents(df_tracker_closed, df_info_sunlight, active_events=False, tracker=True)
-    print(df_tracker_closed.columns)
 
-    #Add Events to Report File
-    add_events_to_final_report(reportfile, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed)
+    # </editor-fold>
 
-    #-------------------------------Analysis on Components Failures---------------------------------
-    #Read and update the timestamps on the analysis dataframes
-    df_incidents_analysis, df_tracker_analysis = data_treatment.read_analysis_df_and_correct_date(reportfiletemplate,
-                                                                                                  date, roundto=1)
-    #Analysis of components failures
-    df_incidents_analysis_final = data_analysis.analysis_component_incidents(
-        df_incidents_analysis,site_list, df_list_closed,df_list_active, df_info_sunlight)
+    # <editor-fold desc="Complete incidents list">
+    df_active = data_treatment.match_df_to_event_tracker(pd.concat(df_list_active.values(), ignore_index=True),
+                                                         component_data, fmeca_data, active=True)
 
-    # Analysis of tracker failures
-    df_tracker_analysis_final = data_analysis.analysis_tracker_incidents(
-        df_tracker_analysis, df_tracker_closed,df_tracker_active, df_info_sunlight)
+    df_closed = data_treatment.match_df_to_event_tracker(pd.concat(df_list_closed.values(), ignore_index=True),
+                                                         component_data, fmeca_data)
 
-    #Add Analysis to excel file
-    add_analysis_to_reportfile(reportfile, df_incidents_analysis_final, df_tracker_analysis_final, df_info_sunlight)
+    df_tracker_active = data_treatment.match_df_to_event_tracker(df_tracker_active, tracker_data, fmeca_data,
+                                                                 active=True, tracker=True)
+
+    df_tracker_closed = data_treatment.match_df_to_event_tracker(df_tracker_closed, tracker_data, fmeca_data,
+                                                                 tracker=True)
+
+    final_df_to_add = {'Active incidents': df_active,
+                       "Closed incidents": df_closed,
+                       "Active tracker incidents": df_tracker_active,
+                       "Closed tracker incidents": df_tracker_closed}
+
+    # </editor-fold>
+
+    # <editor-fold desc="Create concatenated incidents list of incidents of the day">
+    df_active["Event End Time"] = ""
+    df_tracker_active["Event End Time"] = ""
+
+    df_incidents = pd.concat([df_active, df_closed])
+
+    #print(df_incidents[["Related Component", "Event Start Time", "Event End Time"]])
+
+    df_incidents["Event Start Time"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp
+                                        in df_incidents["Event Start Time"]]
+
+    df_incidents["Event End Time"] = [datetime.strptime(str(date + " 23:00:00"), '%Y-%m-%d %H:%M:%S')
+                                      if timestamp == "" else datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for
+                                      timestamp in df_incidents["Event End Time"]]
+
+    # </editor-fold>
+
+    #Availability Calculation
+    availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
+    all_corrected_incidents, date_range = calculations.availability_in_period(df_incidents, period, component_data,
+                                                                              irradiance_df, export_df, budget_pr,
+                                                                              irradiance_threshold=20, timestamp=15,
+                                                                              date=date)
+
+    #print(availability_period_df)
+    final_df_to_add["Incidents Daily Overview"] = data_treatment.match_df_to_event_tracker(all_corrected_incidents,
+                                                                                           component_data, fmeca_data,
+                                                                                           simple_match=True)
+
+    pr_data_period_df = calculations.pr_in_period(all_corrected_incidents, availability_period_df,
+                                               raw_availability_period_df, period, component_data, irradiance_df,
+                                               export_df, budget_pr, budget_export, budget_irr,
+                                               irradiance_threshold=20, timestamp=15, date=date)
+
+    pr_data_period_df = calculations.day_end_availability(pr_data_period_df, final_df_to_add, component_data,
+                                                          tracker_data, all_site_info)
+
+    print(pr_data_period_df.iloc[:4,:2])
+
+    create_dmr_file(final_df_to_add, dest_file, pr_data_period_df, site_capacities)
+
+    return dest_file
 
 
-    return reportfile
+def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_capacities):
 
+    writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    workbook = writer.book
+
+
+    # <editor-fold desc="Formats">
+    # Format column header
+    format_darkblue_white = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': '#FFFFFF'})
+    format_darkblue_white.set_bold()
+    format_darkblue_white.set_text_wrap()
+
+    format_lightblue_black = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#DCE6F1', 'font_color': '#000000'})
+    format_lightblue_black.set_bold()
+    format_lightblue_black.set_text_wrap()
+    format_lightblue_black.set_border()
+
+    format_header = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': '#000000'})
+    format_header.set_bold()
+    format_header.set_text_wrap()
+
+    format_all_white = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFFFF', 'font_color': '#FFFFFF'})
+    format_all_black = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#000000'})
+    format_black_on_white = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#FFFFFF'})
+
+    # Format of specific column data
+    format_day_data = workbook.add_format({'num_format': 'dd/mm/yyyy', 'valign': 'vcenter'})
+    format_day_data.set_align('right')
+    format_day_data.set_border()
+
+    format_hour_data = workbook.add_format({'num_format': 'hh:mm:ss', 'valign': 'vcenter'})
+    format_hour_data.set_align('right')
+    format_hour_data.set_border()
+
+    format_day_hour = workbook.add_format({'num_format': 'dd/mm/yyyy hh:mm:ss', 'valign': 'vcenter'})
+    format_day_hour.set_align('right')
+    format_day_hour.set_border()
+
+    # Format numbers
+    format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
+    format_number.set_border()
+
+    format_nodecimal = workbook.add_format({'num_format': '0', 'align': 'center', 'valign': 'vcenter'})
+    format_nodecimal.set_border()
+
+    format_percentage = workbook.add_format({'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter'})
+    format_percentage.set_border()
+
+    format_percentage_good = workbook.add_format(
+            {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6EFCE',
+             'font_color': '#006100'})
+    format_percentage_good.set_border()
+    format_percentage_mid = workbook.add_format(
+            {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFEB9C',
+             'font_color': '#9C5700'})
+    format_percentage_mid.set_border()
+    format_percentage_bad = workbook.add_format(
+            {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC7CE',
+             'font_color': '#9C0006'})
+    format_percentage_bad.set_border()
+
+    # Format strings
+    format_string = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string.set_border()
+
+    format_string_wrapped = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string_wrapped.set_text_wrap()
+    format_string_wrapped.set_border()
+
+    format_string_unlocked = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'locked': False})
+    unlocked = workbook.add_format({'locked': False})
+    format_string_unlocked.set_border()
+
+    format_string_bold = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold.set_bold()
+    format_string_bold.set_border()
+
+    format_string_bold_wrapped = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold_wrapped.set_bold()
+    format_string_bold_wrapped.set_border()
+    format_string_bold_wrapped.set_text_wrap()
+
+    format_first_column = workbook.add_format(
+            {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
+    format_first_column.set_bold()
+    format_first_column.set_border()
+    format_first_column.set_text_wrap()
+    # </editor-fold>
+
+    # <editor-fold desc="Performance Overview Sheet">
+    active_events = final_df_to_add['Active incidents']
+
+    overview_events = active_events.loc[active_events['Component Status'] == "Not Producing"][
+        ['Site Name', 'ID', 'Related Component', 'Event Start Time', 'Energy Lost (MWh)', 'Capacity Related Component']]
+
+    overview_events['% of site affected'] = ["{:.2%}".format(row['Capacity Related Component'] /
+                                                             float(site_capacities.loc[row['Site Name']]))
+                                             for index, row in overview_events.iterrows()]
+    # overview_events
+
+    sheet = "Performance Overview"
+    try:
+        ws_sheet = workbook.add_worksheet(sheet)
+    except (xlsxwriter.exceptions.DuplicateWorksheetName, NameError):
+        sheet = sheet + "_new"
+        ws_sheet = workbook.add_worksheet(sheet)
+
+    df_performance = performance_fleet_period.T
+
+    #print(df_performance)
+
+    sites = list(df_performance.columns)
+
+    start_row_header = 1
+    start_row_data = 2
+    start_column = 0
+
+    for site in sites:
+        level = 0
+        start_row_header_str = str(start_row_header)
+        start_row_data_str = str(start_row_data)
+
+        performance_site = df_performance.loc[:, [site]].reset_index()
+        n_rows_performance = performance_site.shape[0] + 1
+        # n_columns_performance = performance_site.shape[1]
+
+        incidents_site = overview_events.loc[overview_events['Site Name'] == site].reset_index(drop=True)
+        # incidents_site.insert(1, "#", list(range(1,incidents_site.shape[0] + 1)))
+        n_rows_incidents = incidents_site.shape[0] + 1
+        # n_columns_incidents = incidents_site.shape[1]
+
+        # max_rows = max(n_rows_performance, n_rows_incidents)
+        n_columns_total = performance_site.shape[1]
+
+        width = get_col_widths(performance_site)
+
+        # print("\n", df_total)
+
+        for i in range(start_column, start_column + n_columns_total):
+
+            header = performance_site.columns[i - start_column]
+
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+            header_cell = column_letter + start_row_header_str
+            data_cell = column_letter + start_row_data_str
+            all_column = column_letter + ':' + column_letter
+
+            # print('Header: ', header, "\n", 'Header cell:', header_cell, "\n", "Data Cell: ", data_cell ,"\n")
+
+            data = list(performance_site[header].fillna(""))
+
+            if header == "index":
+                to_collapse_column1 = column_letter
+                data = [x for x in data if not pd.isnull(x)]
+                ws_sheet.write(header_cell, "", format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_lightblue_black)
+                if column_letter == "A":
+                    ws_sheet.set_column(all_column, 23)
+                else:
+                    ws_sheet.set_column(all_column, 23 ,None,{'level': 1, 'hidden': True})  # ,None,{'level': 1, 'hidden': True})
+
+            elif "LSBP" in header or "Wellington" in header:
+                kpis = performance_site['index']
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                data = [x for x in data if not x == ""]
+
+                for i in range(len(data)):
+                    cell = column_letter + str(start_row_data + i)
+                    value = data[i]
+                    kpi = kpis[i]
+
+                    if "%" in value:
+                        value = float(value[:-1]) / 100
+                        ws_sheet.write_number(cell, value, format_percentage)
+                        if not "PR (%)" in kpi:
+                            if "Availability" in kpi:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [{'criteria': '>=', 'type': 'number',
+                                                                              'value': 0.97},
+                                                                             {'criteria': '<', 'type': 'number',
+                                                                              'value': 0.10},
+                                                                             {'criteria': '<=', 'type': 'number',
+                                                                              'value': 0.10}]})
+
+                            else:
+                                ws_sheet.conditional_format(cell, {'type': 'icon_set', 'icon_style': '3_traffic_lights',
+                                                                   'icons': [
+                                                                       {'criteria': '<=', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>', 'type': 'number', 'value': 0},
+                                                                       {'criteria': '>=', 'type': 'number',
+                                                                        'value': 0.05}]})
+
+                    elif "Portfolio" or "Fault Status" in kpi:
+                        ws_sheet.write(cell, value, format_string)
+
+                    else:
+                        value = float(value.replace(",", ""))
+                        ws_sheet.write_number(cell, value, format_number)
+
+                ws_sheet.set_column(all_column, 16, None)
+
+            else:
+                ws_sheet.write(header_cell, header, format_darkblue_white)
+                ws_sheet.write_column(data_cell, data, format_string)
+                ws_sheet.set_column(all_column, 18, None, {'level': 1, 'hidden': True})
+
+        # level = level + 1
+        start_column = start_column + n_columns_total
+    # </editor-fold>
+
+
+    # <editor-fold desc="Incidents' sheets">
+
+    for sheet in final_df_to_add.keys():
+        df = final_df_to_add[sheet]
+        width = get_col_widths(df)
+        n_rows = df.shape[0]
+        n_columns = df.shape[1]
+        try:
+            ws_sheet = workbook.add_worksheet(sheet)
+        except (xlsxwriter.exceptions.DuplicateWorksheetName, NameError):
+            sheet = sheet + "_new"
+            ws_sheet = workbook.add_worksheet(sheet)
+
+        for i in range(len(df.columns)):
+            header = df.columns[i]
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+            header_cell = column_letter + '1'
+            data_cell = column_letter + '2'
+            all_column = column_letter + ':' + column_letter
+            data = df[header].fillna("")
+            #print(data)
+
+            if header == 'ID':
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_first_column)
+                ws_sheet.set_column(all_column, 18)
+
+            elif "Time" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_day_hour)
+                ws_sheet.set_column(all_column, 19)
+
+            elif "Capacity" in header or "(" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_number)
+                ws_sheet.set_column(all_column, 12)
+
+
+            elif "Fa" in header or "ategory" in header or "Excludable" in header:
+                if header == "Resolution Category":
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                    ws_sheet.set_column(all_column, width[i + 1], unlocked)
+                    ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                             {'validate': 'list', 'source': ['Repair',
+                                                                             'Reset',
+                                                                             'Part Replacement',
+                                                                             'Unit Replacement']})
+
+                elif "Excludable" in header:
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                    ws_sheet.set_column(all_column, width[i + 1], unlocked)
+                    #ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                                           #  {'validate': 'list',
+                                           #   'source': ['OMC', 'Force Majeure', 'Curtailment', "N/A"]})
+
+            elif header == 'Remediation' or header == 'Comments':
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string_wrapped)
+                ws_sheet.set_column(all_column, 60)
+
+            else:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+        ws_sheet.set_default_row(30)
+    # </editor-fold>
+
+    ws_active = workbook.get_worksheet_by_name("Performance Overview")
+    ws_active.activate()
+
+    writer.save()
+    print('Done')
+
+    return
 
 
 
