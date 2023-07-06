@@ -168,7 +168,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                                                              "Timestamp"] <= rpi_actual_end_time) &
                                                                       (export_incident[
                                                                            "Timestamp"] >= rpi_actual_start_time)][
-                                    "Timestamp"].to_list() #for availability calculation (active incident hours)
+                                    "Timestamp"].to_list()  # for availability calculation (active incident hours)
 
                                 timestamp_range_eloss = []  # this is empty bc curt excludes the capacity of the
                                 # incident so energy loss needs to be calculated at this incident
@@ -819,7 +819,8 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
 
     Returns site_list,df_list_active, df_list_closed"""
 
-    df_closed_all = filter_notprod_and_duration(df, min_dur)  # creates dataframe with closed, not producing incidents with a minimum specified duration
+    df_closed_all = filter_notprod_and_duration(df,
+                                                min_dur)  # creates dataframe with closed, not producing incidents with a minimum specified duration
     df_closed_all = remove_milliseconds(df_closed_all, end_time=True)  # removes milliseconds
     # append_df_to_excel('test.xlsx', df_closed_all, sheet_name='test')
 
@@ -1213,25 +1214,42 @@ def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracke
             index_site_array = df_info_sunlight[df_info_sunlight['Site'] == site].index.values
             index_site = int(index_site_array[0])
             sunrise_time = df_info_sunlight.loc[index_site, 'Time of operation start']
+            site_capacity = df_info_sunlight.loc[index_site, 'Capacity']
+
             if active_events is False:
                 print('Describing closed incidents of ' + site)
                 for index, row in df_events.iterrows():
                     rel_comp = df_events.at[index, 'Related Component']
+                    cap_rel_comp = df_events.at[index, 'Capacity Related Component']
+                    status = df_events.at[index, 'Component Status']
+
                     duration = df_events.at[index, 'Duration (h)']
+
                     start_date = df_events.at[index, 'Rounded Event Start Time']
                     end_date = df_events.at[index, 'Rounded Event End Time']
+
+                    start_date_short = start_date.strftime("%b-%d")
+                    end_date_short = end_date.strftime("%b-%d")
+
                     event_time_hour = end_date.hour
                     event_time_minute = end_date.minute
-                    event_time = str(event_time_hour) + ':' + str(event_time_minute)
+                    if event_time_minute == 0:
+                        event_time = str(event_time_hour) + ':0' + str(event_time_minute)
+                    else:
+                        event_time = str(event_time_hour) + ':' + str(event_time_minute)
 
                     if start_date == sunrise_time and duration < 2:
                         description = "• " + str(rel_comp) + ' started late at ~' + str(event_time) + ' (closed)'
-                    elif duration > 24:
-                        description = "• " + str(rel_comp) + ' was not producing until ~' + str(
-                            event_time) + ' (closed)'
+
+                    elif start_date.day != end_date.day:
+                        description = "• " + str(rel_comp) + ' was ' + status.lower() + ' from' + start_date_short + \
+                                      'until ' + end_date_short + ' at ~' + str(event_time) + ' (' + \
+                                      "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
                     else:
-                        description = "• " + str(rel_comp) + ' was not producing on the ' + str(start_date.day) + \
-                                      ' for ~' + str(duration) + ' hours (% of site capacity affected)'
+                        description = "• " + str(rel_comp) + ' was ' + status.lower() + ' on the ' + str(start_date.day)\
+                                      + ' for ~' + str(duration) + ' hours (' + \
+                                      "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
+
                     df_events.loc[index, 'Comments'] = description
 
                 df[site] = df_events
