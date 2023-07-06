@@ -1262,7 +1262,11 @@ def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracke
                     day = start_date.day
                     month = start_date.month
                     date = str(day) + '/' + str(month)
-                    description = "• " + str(rel_comp) + ' is not producing (open since ' + date + ')'
+                    status = df_events.at[index, 'Component Status']
+
+                    description = "• " + str(rel_comp) + ' is ' + status.lower() + ' (open since ' + \
+                                  date.strftime("%b-%d") + ')'
+
                     df_events.loc[index, 'Comments'] = description
 
                 df[site] = df_events
