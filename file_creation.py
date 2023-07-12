@@ -155,7 +155,7 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
     report_template_path = ar_dir + '/Info&Templates/Reporting_' + geography + '_Sites_Template.xlsx'
     general_info_path = ar_dir + '/Info&Templates/General Info ' + geography + '.xlsx'
     event_tracker_path = ar_dir + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
-    previous_dmr_path = ar_dir + '/Reporting_' + geography + '_Sites_' + prev_day + '-' + prev_month + '.xlsx'
+    previous_dmr_path = ar_dir + '/Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "") + '.xlsx'
 
     print(previous_dmr_path)
 
@@ -395,8 +395,10 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
     df_active = data_treatment.match_df_to_event_tracker(pd.concat(df_list_active.values(), ignore_index=True),
                                                          component_data, fmeca_data, active=True)
 
+
     df_closed = data_treatment.match_df_to_event_tracker(pd.concat(df_list_closed.values(), ignore_index=True),
                                                          component_data, fmeca_data)
+
 
     df_tracker_active = data_treatment.match_df_to_event_tracker(df_tracker_active, tracker_data, fmeca_data,
                                                                  active=True, tracker=True)
@@ -584,15 +586,7 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
         start_row_data_str = str(start_row_data)
 
         performance_site = df_performance.loc[:, [site]].reset_index()
-        n_rows_performance = performance_site.shape[0] + 1
-        # n_columns_performance = performance_site.shape[1]
-
-        incidents_site = overview_events.loc[overview_events['Site Name'] == site].reset_index(drop=True)
-        # incidents_site.insert(1, "#", list(range(1,incidents_site.shape[0] + 1)))
-        n_rows_incidents = incidents_site.shape[0] + 1
-        # n_columns_incidents = incidents_site.shape[1]
-
-        # max_rows = max(n_rows_performance, n_rows_incidents)
+        print(performance_site)
         n_columns_total = performance_site.shape[1]
 
         width = get_col_widths(performance_site)
@@ -615,14 +609,15 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
             if header == "index":
                 to_collapse_column1 = column_letter
                 data = [x for x in data if not pd.isnull(x)]
-                ws_sheet.write(header_cell, "", format_darkblue_white)
-                ws_sheet.write_column(data_cell, data, format_lightblue_black)
+
                 if column_letter == "A":
+                    ws_sheet.write(header_cell, "", format_darkblue_white)
+                    ws_sheet.write_column(data_cell, data, format_lightblue_black)
                     ws_sheet.set_column(all_column, 23)
                 else:
-                    ws_sheet.set_column(all_column, 23 ,None,{'level': 1, 'hidden': True})  # ,None,{'level': 1, 'hidden': True})
+                    pass
 
-            elif "LSBP" in header or "Wellington" in header:
+            elif header in sites:
                 kpis = performance_site['index']
                 ws_sheet.write(header_cell, header, format_darkblue_white)
                 data = [x for x in data if not x == ""]
@@ -668,8 +663,11 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
                 ws_sheet.set_column(all_column, 18, None, {'level': 1, 'hidden': True})
 
         # level = level + 1
-        start_column = start_column + n_columns_total
+        start_column = start_column + n_columns_total - 1
     # </editor-fold>
+
+
+
 
 
     # <editor-fold desc="Incidents' sheets">
@@ -728,6 +726,12 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
                     #ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
                                            #  {'validate': 'list',
                                            #   'source': ['OMC', 'Force Majeure', 'Curtailment', "N/A"]})
+
+                else:
+                    ws_sheet.write(header_cell, header, format_header)
+                    ws_sheet.write_column(data_cell, data, format_string)
+                    ws_sheet.set_column(all_column, width[i + 1])
+
 
             elif header == 'Remediation' or header == 'Comments':
                 ws_sheet.write(header_cell, header, format_header)

@@ -831,7 +831,7 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
     df_active_all = remove_incidents_component_type(df_active_all, 'Feeder')
 
     # Add capacity of each component
-    site_list, df_list_active, df_list_closed = create_df_list(df)
+    df_list_active, df_list_closed = create_df_list(site_selection)
 
     for site in site_selection:
         # Create active df for a given site
@@ -1105,16 +1105,19 @@ def complete_dataset_existing_incidents(df_list, df_dmr):
     for site in df_list.keys():
         print("Completing dataset on " + site)
         incidents_site = df_list[site]
+        df_raw_columns = incidents_site.columns.to_list()
+
         df_dmr_site = df_dmr.loc[df_dmr['Site Name'] == site]
+
         if type(df_dmr_site) == str:
             print("No previous active events")
 
         elif type(incidents_site) == str:
             print("No active events, adding previously active events")
-            incidents_site = df_dmr_site
+            incidents_site = pd.concat([incidents_site, df_dmr_site])[df_raw_columns]
 
         else:
-            incidents_site = pd.concat([incidents_site, df_dmr_site])
+            incidents_site = pd.concat([incidents_site, df_dmr_site])[df_raw_columns]
 
         df_list[site] = incidents_site
 
@@ -1265,13 +1268,12 @@ def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracke
                     status = df_events.at[index, 'Component Status']
 
                     description = "• " + str(rel_comp) + ' is ' + status.lower() + ' (open since ' + \
-                                  date.strftime("%b-%d") + ')'
+                                  start_date.strftime("%b-%d") + ')'
 
                     df_events.loc[index, 'Comments'] = description
 
                 df[site] = df_events
     else:
-
         if active_events is False:
             print('Describing closed tracker incidents')
             for index, row in df.iterrows():
@@ -1447,19 +1449,23 @@ def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = Fal
         df.drop_duplicates(subset=['ID'], inplace=True, ignore_index=True)  # .reset_index(drop=True, inplace=True)
 
         if simple_match is False and tracker is False:
-            for index, row in df.loc[df['Curtailment Event'] == 'x'].iterrows():
-                df.loc[index, 'Fault'] = curtailment_fmeca['Fault'].values[0]
-                df.loc[index, 'Fault Component'] = curtailment_fmeca['Fault Component'].values[0]
-                df.loc[index, 'Failure Mode'] = curtailment_fmeca['Failure Mode'].values[0]
-                df.loc[index, 'Failure Mechanism'] = curtailment_fmeca['Failure Mechanism'].values[0]
-                df.loc[index, 'Category'] = curtailment_fmeca['Category'].values[0]
-                df.loc[index, 'Subcategory'] = curtailment_fmeca['Subcategory'].values[0]
-                df.loc[index, 'Resolution Category'] = "Reset"
-                df.loc[index, 'Excludable'] = "Yes"
-                df.loc[index, 'Excludable Category'] = "Curtailment"
-                df.loc[index, 'Exclusion Rationale'] = "Curtailment"
-                df.loc[index, 'Incident Status'] = "Closed"
-                df.loc[index, 'Categorization Status'] = "Completed"
+            try:
+                for index, row in df.loc[df['Curtailment Event'] == 'x'].iterrows():
+                    df.loc[index, 'Fault'] = curtailment_fmeca['Fault'].values[0]
+                    df.loc[index, 'Fault Component'] = curtailment_fmeca['Fault Component'].values[0]
+                    df.loc[index, 'Failure Mode'] = curtailment_fmeca['Failure Mode'].values[0]
+                    df.loc[index, 'Failure Mechanism'] = curtailment_fmeca['Failure Mechanism'].values[0]
+                    df.loc[index, 'Category'] = curtailment_fmeca['Category'].values[0]
+                    df.loc[index, 'Subcategory'] = curtailment_fmeca['Subcategory'].values[0]
+                    df.loc[index, 'Resolution Category'] = "Reset"
+                    df.loc[index, 'Excludable'] = "Yes"
+                    df.loc[index, 'Excludable Category'] = "Curtailment"
+                    df.loc[index, 'Exclusion Rationale'] = "Curtailment"
+                    df.loc[index, 'Incident Status'] = "Closed"
+                    df.loc[index, 'Categorization Status'] = "Completed"
+
+            except KeyError:
+                pass
             # print(df['Related Component'])
             for index, row in df.loc[(df['Related Component'].str.contains('CB|DC|String'))].iterrows():
                 df.loc[index, 'Excludable'] = "Yes"

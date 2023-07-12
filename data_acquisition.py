@@ -32,15 +32,18 @@ def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_track
 
     try:
         all_prev_active_events = pd.read_excel(previous_dmr_path,
-                                               sheet_name=["Active Events", "Active tracker incidents"],
+                                               sheet_name=["Active incidents", "Active tracker incidents"],
                                                engine="openpyxl")
         #all_prev_active_events = pd.concat([all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])
         #df_all = pd.concat([df_all, all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])[df_all_columns]
 
-        prev_active_events = all_prev_active_events['Active Events']
+        prev_active_events = all_prev_active_events['Active incidents']
         prev_active_tracker_events = all_prev_active_events['Active tracker incidents']
 
-        print(df_all.columns)
+        prev_active_events['InSolar Check'] = "x"
+        prev_active_tracker_events['InSolar Check'] = "x"
+
+        #print(df_all.columns)
     except FileNotFoundError:
         print("Previous Daily Monitoring Report not found.")
         try:
@@ -564,8 +567,13 @@ def get_dataframes_to_add_to_EventTracker(report_files,event_tracker_file_path, 
 
     #Dataframes to add
     for report_path in report_files:
-        df_active_to_add_report = pd.read_excel(report_path, sheet_name='Active Events', engine='openpyxl')
-        df_closed_to_add_report = pd.read_excel(report_path, sheet_name='Closed Events', engine='openpyxl')
+        try:
+            df_active_to_add_report = pd.read_excel(report_path, sheet_name='Active incidents', engine='openpyxl')
+            df_closed_to_add_report = pd.read_excel(report_path, sheet_name='Closed incidents', engine='openpyxl')
+        except ValueError:
+            df_active_to_add_report = pd.read_excel(report_path, sheet_name='Active Events', engine='openpyxl')
+            df_closed_to_add_report = pd.read_excel(report_path, sheet_name='Closed Events', engine='openpyxl')
+
         df_active_to_add_trackers_report = pd.read_excel(report_path, sheet_name='Active tracker incidents',
                                                          engine='openpyxl')
         df_closed_to_add_trackers_report = pd.read_excel(report_path, sheet_name='Closed tracker incidents',
