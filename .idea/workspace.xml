@@ -5,10 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Changed describing function to be more UPesque">
+      <change afterPath="$PROJECT_DIR$/event_tracker_manager.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/visuals.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../monitools/.idea/monitools.iml" beforeDir="false" afterPath="$PROJECT_DIR$/../monitools/.idea/monitools.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../monitools/monitools.py" beforeDir="false" afterPath="$PROJECT_DIR$/../monitools/monitools.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../monitools/windows.py" beforeDir="false" afterPath="$PROJECT_DIR$/../monitools/windows.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/perfonitor.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/perfonitor.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_acquisition.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_acquisition.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_treatment.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_treatment.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/file_creation.py" beforeDir="false" afterPath="$PROJECT_DIR$/file_creation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/inputs.py" beforeDir="false" afterPath="$PROJECT_DIR$/inputs.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -39,8 +43,8 @@
     <property name="ASKED_SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="last_opened_file_path" value="$USER_HOME$/Anaconda3/Lib/monitools" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PythonContentEntriesConfigurable" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../monitools" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyDependenciesConfigurable" />
   </component>
   <component name="PyConsoleOptionsProvider">
     <option name="myPythonConsoleState">
@@ -48,6 +52,12 @@
         <option name="myUseModuleSdk" value="true" />
       </console-settings>
     </option>
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\ricardo.bento\Documents\GitHub\monitools" />
+      <recent name="C:\Users\ricardo.bento\Documents\GitHub\perfonitor" />
+    </key>
   </component>
   <component name="RunManager" selected="Python.monitools (1)">
     <configuration name="data_acquisition" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">

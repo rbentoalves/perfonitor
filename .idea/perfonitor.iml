@@ -2,23 +2,17 @@
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$" />
-dmr_file_creation
     <orderEntry type="jdk" jdkName="Python 3.9 (base)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="monitools" />
-
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-main
+    <orderEntry type="module" module-name="monitools" />
   </component>
   <component name="PyDocumentationSettings">
     <option name="format" value="PLAIN" />
     <option name="myDocStringFormat" value="Plain" />
   </component>
-dmr_file_creation
-
   <component name="TestRunnerService">
     <option name="PROJECT_TEST_RUNNER" value="pytest" />
   </component>
-main
 </module>

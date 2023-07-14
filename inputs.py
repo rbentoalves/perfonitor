@@ -570,7 +570,7 @@ def event_tracker():
     return
 
 
-def underperformance_report():
+def underperformance_report(site_list, pre_selection):
     username = os.getlogin()
 
     sg.theme('DarkAmber')  # Add a touch of color
