@@ -1,6 +1,6 @@
 import PySimpleGUI as sg
 import os
-import file_creation as file_creation
+import file_creation
 
 def main():
     sg.theme('DarkAmber')  # Add a touch of color

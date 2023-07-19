@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import math
 
 
 def availability_visuals(availability_fleet_per_period, period, folder_img):
@@ -55,3 +56,93 @@ def availability_visuals(availability_fleet_per_period, period, folder_img):
     plt.savefig(period_graph, bbox_inches='tight')
 
     return period_graph
+
+
+def clipping_visuals(summaries, folder_img, site):
+    # Energy Clipped
+    graphs = {}
+    graphs_by_type = {}
+    graphs_by_site = {}
+
+    for key in summaries.keys():
+
+        df = summaries[key]
+
+        to_plot = ['Power Clipped', "Corrected Power Clipped"]
+
+        x_label = df.index.name
+        x_data = df.index
+        y_label = "Energy Clipped MWh"
+        """y_data = daily_summary[['Power Clipped', "Corrected Power Clipped"]]"""
+
+        # x_label = df_name.replace(" over time","")
+
+        plt.figure(figsize=(25, 10))
+        plt.style.use('ggplot')
+
+        plt.suptitle("Energy Clipped", fontsize='xx-large')
+
+        plt.xticks(rotation=45, ha='right', fontsize='xx-large')
+        plt.yticks(ha='right', fontsize='xx-large')
+        plt.ylabel(y_label, fontsize='xx-large')
+
+        for graph in to_plot:
+            y_data = df[graph].values
+            plt.plot(x_data, y_data, label=graph.replace('Power', "Energy"))
+
+        period_graph = (folder_img + '/' + str(site.upper()) + '_energy_loss' + x_label + '.png')
+        plt.savefig(period_graph, bbox_inches='tight')
+        graphs[key] = period_graph
+
+        plt.legend(fontsize='xx-large')
+        # plt.show
+        plt.close()
+
+    graphs_by_type["Energy"] = graphs
+
+    # % of loss
+    graphs = {}
+    for key in summaries.keys():
+
+        df = summaries[key]
+
+        to_plot = ['% of loss', "% of loss corrected"]
+
+        x_label = df.index.name
+        x_data = df.index
+        y_label = "% Energy Clipped"
+        """y_data = daily_summary[['Power Clipped', "Corrected Power Clipped"]]"""
+
+        # x_label = df_name.replace(" over time","")
+
+        plt.figure(figsize=(25, 10))
+        plt.style.use('ggplot')
+
+        plt.suptitle("Energy Clipped", fontsize='xx-large')
+
+        plt.xticks(rotation=45, ha='right', fontsize='xx-large')
+        plt.yticks(ha='right', fontsize='xx-large')
+        plt.ylabel(y_label, fontsize='xx-large')
+
+        for graph in to_plot:
+            y_data = df[graph].values
+            y_ticks = list(range(0, math.ceil(float(df[graph].max())) + 1))
+            plt.yticks(y_ticks, y_ticks, ha='right', fontsize='xx-large')
+
+            plt.plot(x_data, y_data, label=graph.replace('Power', "Energy"))
+
+        plt.legend(fontsize='xx-large')
+
+        period_graph = (folder_img + '/' + str(site.upper()) + '_%_of_loss' + x_label + '.png')
+        plt.savefig(period_graph, bbox_inches='tight')
+        graphs[key] = period_graph
+
+        # plt.show
+        plt.close()
+
+    graphs_by_type["% of loss"] = graphs
+
+    graphs_by_site[site] = graphs_by_type
+
+
+    return graphs_by_site

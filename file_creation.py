@@ -755,6 +755,339 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
     return
 
 
+def create_curtailment_file(dest_file, site_selection, curtailment_events_by_site, monthly_curtailment_by_site,
+                            component_data, fmeca_data):
+    writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    workbook = writer.book
+
+    # <editor-fold desc="Formats">
+    # Format column header
+    format_darkblue_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': '#FFFFFF'})
+    format_darkblue_white.set_bold()
+    format_darkblue_white.set_text_wrap()
+
+    format_lightblue_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#DCE6F1', 'font_color': '#000000'})
+    format_lightblue_black.set_bold()
+    format_lightblue_black.set_text_wrap()
+    format_lightblue_black.set_border()
+
+    format_header = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': '#000000'})
+    format_header.set_bold()
+    format_header.set_text_wrap()
+
+    format_all_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFFFF', 'font_color': '#FFFFFF'})
+    format_all_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#000000'})
+    format_black_on_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#FFFFFF'})
+
+    # Format of specific column data
+    format_day_data = workbook.add_format({'num_format': 'dd/mm/yyyy', 'valign': 'vcenter'})
+    format_day_data.set_align('right')
+    format_day_data.set_border()
+
+    format_hour_data = workbook.add_format({'num_format': 'hh:mm:ss', 'valign': 'vcenter'})
+    format_hour_data.set_align('right')
+    format_hour_data.set_border()
+
+    format_day_hour = workbook.add_format({'num_format': 'dd/mm/yyyy hh:mm:ss', 'valign': 'vcenter'})
+    format_day_hour.set_align('right')
+    format_day_hour.set_border()
+
+    # Format numbers
+    format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
+    format_number.set_border()
+
+    format_nodecimal = workbook.add_format({'num_format': '0', 'align': 'center', 'valign': 'vcenter'})
+    format_nodecimal.set_border()
+
+    format_percentage = workbook.add_format({'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter'})
+    format_percentage.set_border()
+
+    format_percentage_good = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6EFCE', 'font_color': '#006100'})
+    format_percentage_good.set_border()
+    format_percentage_mid = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFEB9C', 'font_color': '#9C5700'})
+    format_percentage_mid.set_border()
+    format_percentage_bad = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+    format_percentage_bad.set_border()
+
+    # Format strings
+    format_string = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string.set_border()
+
+    format_string_wrapped = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string_wrapped.set_text_wrap()
+    format_string_wrapped.set_border()
+
+    format_string_unlocked = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'locked': False})
+    unlocked = workbook.add_format({'locked': False})
+    format_string_unlocked.set_border()
+
+    format_string_bold = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold.set_bold()
+    format_string_bold.set_border()
+
+    format_string_bold_wrapped = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold_wrapped.set_bold()
+    format_string_bold_wrapped.set_border()
+    format_string_bold_wrapped.set_text_wrap()
+
+    format_first_column = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
+    format_first_column.set_bold()
+    format_first_column.set_border()
+    # </editor-fold>
+
+    for site in site_selection:
+
+        sheet_raw_df = site.replace("LSBP - ", "") + " raw DF"
+        sheet_incidents = site.replace("LSBP - ", "") + " events"
+        sheet_month = site.replace("LSBP - ", "") + " MO"
+
+        # Add raw df
+        df_site = curtailment_events_by_site[site]
+        # df_site.to_excel(writer, sheet_name=sheet_raw_df)
+
+        # Add incidents df
+        ws_sheet = workbook.add_worksheet(sheet_incidents)
+        et_match_df = data_treatment.match_df_to_event_tracker(df_site, component_data, fmeca_data)
+
+        width = get_col_widths(et_match_df)
+
+        for i in range(len(et_match_df.columns)):
+            header = et_match_df.columns[i]
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+            header_cell = column_letter + '1'
+            data_cell = column_letter + '2'
+            all_column = column_letter + ':' + column_letter
+            data = et_match_df[header].fillna("")
+
+            if header == 'ID':
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_first_column)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+            elif "Time" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_day_hour)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+            elif "Capacity" in header or "(" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_number)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+
+
+            elif header == "Incident Status":
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                ws_sheet.set_column(all_column, width[i + 1], unlocked)
+
+            elif header == "Categorization Status":
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                ws_sheet.set_column(all_column, width[i + 1], unlocked)
+
+
+            elif header == 'Remediation' or header == 'Comments':
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string_wrapped)
+                ws_sheet.set_column(all_column, 80)
+
+
+            else:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+        # Add monthly sheet
+        df_site_month = monthly_curtailment_by_site[site]
+        df_site_month.to_excel(writer, sheet_name=sheet_month)
+
+    writer.close()
+
+    writer.handles = None
+
+    print('Done')
+
+    # IPython.Application.instance().kernel.do_shutdown(True)
+
+    return
+
+def create_clipping_file(site, summaries_site, dest_file, graphs_site):
+
+    dest_file = dest_file.replace(".xlsx","_" + site.replace("LSBP - ", "") + ".xlsx")
+
+    writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    workbook = writer.book
+
+    # <editor-fold desc="Formats">
+    # Format column header
+    format_darkblue_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': '#FFFFFF'})
+    format_darkblue_white.set_bold()
+    format_darkblue_white.set_text_wrap()
+
+    format_lightblue_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#DCE6F1', 'font_color': '#000000'})
+    format_lightblue_black.set_bold()
+    format_lightblue_black.set_text_wrap()
+    format_lightblue_black.set_border()
+
+    format_header = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': '#000000'})
+    format_header.set_bold()
+    format_header.set_text_wrap()
+
+    format_all_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFFFF', 'font_color': '#FFFFFF'})
+    format_all_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#000000'})
+    format_black_on_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#FFFFFF'})
+
+    # Format of specific column data
+    format_day_data = workbook.add_format({'num_format': 'dd/mm/yyyy', 'valign': 'vcenter'})
+    format_day_data.set_align('right')
+    format_day_data.set_border()
+
+    format_hour_data = workbook.add_format({'num_format': 'hh:mm:ss', 'valign': 'vcenter'})
+    format_hour_data.set_align('right')
+    format_hour_data.set_border()
+
+    format_day_hour = workbook.add_format({'num_format': 'dd/mm/yyyy hh:mm:ss', 'valign': 'vcenter'})
+    format_day_hour.set_align('right')
+    format_day_hour.set_border()
+
+    # Format numbers
+    format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
+    format_number.set_border()
+
+    format_nodecimal = workbook.add_format({'num_format': '0', 'align': 'center', 'valign': 'vcenter'})
+    format_nodecimal.set_border()
+
+    format_percentage = workbook.add_format({'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter'})
+    format_percentage.set_border()
+
+    format_percentage_good = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6EFCE', 'font_color': '#006100'})
+    format_percentage_good.set_border()
+    format_percentage_mid = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFEB9C', 'font_color': '#9C5700'})
+    format_percentage_mid.set_border()
+    format_percentage_bad = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
+    format_percentage_bad.set_border()
+
+    # Format strings
+    format_string = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string.set_border()
+
+    format_string_wrapped = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string_wrapped.set_text_wrap()
+    format_string_wrapped.set_border()
+
+    format_string_unlocked = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'locked': False})
+    unlocked = workbook.add_format({'locked': False})
+    format_string_unlocked.set_border()
+
+    format_string_bold = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold.set_bold()
+    format_string_bold.set_border()
+
+    format_string_bold_wrapped = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold_wrapped.set_bold()
+    format_string_bold_wrapped.set_border()
+    format_string_bold_wrapped.set_text_wrap()
+
+    format_first_column = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
+    format_first_column.set_bold()
+    format_first_column.set_border()
+    # </editor-fold>
+
+    for key in summaries_site.keys():
+        sheet = site + "_" + key
+        sheet = sheet.replace("LSBP - ", "")
+
+        try:
+            ws_sheet = workbook.add_worksheet(sheet)
+        except (xlsxwriter.exceptions.DuplicateWorksheetName, NameError):
+            sheet = sheet + "_new"
+            ws_sheet = workbook.add_worksheet(sheet)
+
+        df = summaries_site[key]
+        width = get_col_widths(df)
+        n_rows = df.shape[0]
+        n_columns = df.shape[1]
+        index = df.index
+        index_name = df.index.name
+
+        ws_sheet.write("A1", index_name, format_header)
+        ws_sheet.write_column("A2", index, format_day_data)
+        ws_sheet.set_column("A:A", 15)
+
+        for i in range(len(df.columns)):
+            header = df.columns[i]
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 2)
+            header_cell = column_letter + '1'
+            data_cell = column_letter + '2'
+            all_column = column_letter + ':' + column_letter
+            data = df[header].fillna("")
+
+            if "%" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_number)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+            else:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_number)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+        ws_sheet.set_default_row(30)
+
+        # Insert Images
+        image_column = openpyxl.utils.cell.get_column_letter(i + 3)
+        image_column2 = openpyxl.utils.cell.get_column_letter(i + 23)
+        image_row_n = 1
+
+        graphs_energy = graphs_site['Energy']
+        graphs_loss = graphs_site['% of loss']
+
+        # for site_key in graphs_site.keys():
+
+        graph_energy_granularity = graphs_energy[key]
+        graph_loss_granularity = graphs_loss[key]
+
+        image_cell = image_column + str(image_row_n)
+        image_cell2 = image_column2 + str(image_row_n)
+
+        ws_sheet.insert_image(image_cell, graph_energy_granularity)
+        ws_sheet.insert_image(image_cell2, graph_loss_granularity)
+
+        image_row_n = image_row_n + 10
+
+        ws_sheet.set_column((image_column + ':ZZ'), 10, format_all_white)
+
+    writer.close()
+
+    writer.handles = None
+
+    print('Done')
+
+
+
+
+    return
 
 # <editor-fold desc="ET Functions">
 

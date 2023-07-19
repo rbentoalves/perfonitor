@@ -1,18 +1,18 @@
 import os
-import perfonitor.calculations as calculations
-import perfonitor.data_acquisition as data_acquisition
-import perfonitor.data_treatment as data_treatment
-import perfonitor.file_creation as file_creation
-import perfonitor.inputs as inputs
-import monitools.windows as windows
+import calculations
+import data_acquisition
+import data_treatment
+import file_creation
+import inputs
+import windows
 import re
-import perfonitor.visuals as visuals
+import visuals
 from datetime import datetime
 import PySimpleGUI as sg
 import pandas as pd
 
 
-def main(site_list, pre_selection):
+def main(site_list, pre_selection, geography):
     sg.theme('DarkAmber')  # Add a touch of color
     # All the stuff inside your window.
     layout = [[sg.Text('Welcome to the Event Tracker Manager, what do you want to do?', pad=((2, 10), (2, 5)))],
@@ -41,7 +41,7 @@ def main(site_list, pre_selection):
 
             # <editor-fold desc="Get inputs, files necessary to analysis">
             # Get input of critical information for update, dates and file locations
-            source_folder, source, geography, geopgraphy_folder, dest_file, folder_img, recalculate_value \
+            source_folder, source, geography, geography_folder, dest_file, folder_img, recalculate_value \
                 = windows.new_event_tracker()
 
             if source_folder == "None":
@@ -53,7 +53,7 @@ def main(site_list, pre_selection):
             # Get file paths to add
             print("Looking for files to add...")
             all_irradiance_file, all_export_file, general_info_path = \
-                data_acquisition.get_files_to_add(0, 0, geopgraphy_folder, geography, no_update=True)
+                data_acquisition.get_files_to_add(0, 0, geography_folder, geography, no_update=True)
 
 
             """print("All Irradiance file: ", all_irradiance_file, "\n Irradiance files: ", irradiance_files,
@@ -243,7 +243,7 @@ def main(site_list, pre_selection):
             # <editor-fold desc="Get inputs, files and dataframes necessary to analysis">
             # Get input of critical information for update, dates and file locations
             date_start, date_end, event_tracker_path, dmr_folder, geography, toggle_updt, recalculate_value \
-                = windows.update_event_tracker()
+                = windows.update_event_tracker(geography)
 
             if event_tracker_path == "None":
                 continue
@@ -430,7 +430,7 @@ def main(site_list, pre_selection):
 
             # <editor-fold desc="Get inputs, files necessary to analysis">
             # Get input of critical information for update, dates and file locations
-            source_folder, geography, geopgraphy_folder, recalculate_value = windows.event_tracker()
+            source_folder, geography, geography_folder, recalculate_value = windows.event_tracker(geography)
 
             if source_folder == "None":
                 continue
@@ -441,11 +441,11 @@ def main(site_list, pre_selection):
             # Get file paths to add
             print("Looking for files to add...")
             all_irradiance_file, all_export_file, general_info_path = \
-                data_acquisition.get_files_to_add(0, 0, geopgraphy_folder, geography, no_update=True)
+                data_acquisition.get_files_to_add(0, 0, geography_folder, geography, no_update=True)
 
-            event_tracker_file_path = geopgraphy_folder + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
-            dest_file = geopgraphy_folder + '/Event Tracker/Event Tracker ' + geography + '_Final.xlsx'
-            folder_img = geopgraphy_folder + '/Event Tracker/images'
+            event_tracker_file_path = geography_folder + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
+            dest_file = geography_folder + '/Event Tracker/Event Tracker ' + geography + '_Final.xlsx'
+            folder_img = geography_folder + '/Event Tracker/images'
 
             """print("All Irradiance file: ", all_irradiance_file, "\n Irradiance files: ", irradiance_files,
                   "\n All Export file: ", all_export_file, "\n Export files: ", export_files,
@@ -610,10 +610,10 @@ def main(site_list, pre_selection):
 
             # <editor-fold desc="Get inputs, files necessary to analysis">
             # Get input of critical information for update, dates and file locations
-            source_folder, geography, geopgraphy_folder, recalculate_value, period_list, level, irradiance_threshold \
-                = windows.underperformance_report(site_list, pre_selection)
+            source_folder, geography, geography_folder, recalculate_value, period_list, level, irradiance_threshold \
+                = windows.underperformance_report(site_list, pre_selection, geography)
 
-            # print(source_folder, "\n" , geography, "\n" , geopgraphy_folder, "\n" ,recalculate_value,"\n" , period_list)
+            # print(source_folder, "\n" , geography, "\n" , geography_folder, "\n" ,recalculate_value,"\n" , period_list)
 
             """print("Start date: ", date_start, "\n End date: ", date_end, "\n ET: ", event_tracker_path,
                   "\n DMR folder: ", dmr_folder)
@@ -621,10 +621,10 @@ def main(site_list, pre_selection):
             # Get file paths to add
             print("Looking for files to add...")
             all_irradiance_file, all_export_file, general_info_path = \
-                data_acquisition.get_files_to_add(0, 0, geopgraphy_folder, geography, no_update=True)
+                data_acquisition.get_files_to_add(0, 0, geography_folder, geography, no_update=True)
 
-            event_tracker_file_path = geopgraphy_folder + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
-            folder_img = geopgraphy_folder + '/Event Tracker/Underperformance Reports/images'
+            event_tracker_file_path = geography_folder + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
+            folder_img = geography_folder + '/Event Tracker/Underperformance Reports/images'
 
             print("All Irradiance file: ", all_irradiance_file,
                   "\n All Export file: ", all_export_file,
@@ -787,7 +787,7 @@ def main(site_list, pre_selection):
             # File Creation - step 3 actually create file
             print("Creating file...")
 
-            underperformance_dest_file = geopgraphy_folder + \
+            underperformance_dest_file = geography_folder + \
                                          '/Event Tracker/Underperformance Reports/Underperformance Report ' \
                                          + geography + "_" + date_range + "_" + level + '_irr' + str(
                 irradiance_threshold) + '.xlsx'
@@ -808,7 +808,7 @@ def main(site_list, pre_selection):
                     os.system(command)
 
         if event == "Monday.com files":
-            date_start, date_end, event_tracker_folder, geography = windows.mondaycom_file()
+            date_start, date_end, event_tracker_folder, geography = windows.mondaycom_file(geography)
 
             date_list = date_list = pd.date_range(date_start, date_end, freq='d')
             first_timestamp = datetime.strptime(date_start + " 00:00:00", '%Y-%m-%d %H:%M:%S')

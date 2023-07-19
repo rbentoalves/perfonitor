@@ -1,11 +1,11 @@
 import pandas as pd
 from datetime import datetime
-import perfonitor.inputs as inputs
+import inputs
 import re
 import os
 import PySimpleGUI as sg
 import statistics
-import data_treatment as data_treatment
+import data_treatment
 
 
 def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, previous_dmr_path):
@@ -392,10 +392,12 @@ def get_filename_folder():
 def read_irradiance_export(irradiance_file_path, export_file_path):
     
     irradiance_df = pd.read_excel(irradiance_file_path, engine="openpyxl")
-    irradiance_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in irradiance_df["Timestamp"]]
+    #irradiance_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in irradiance_df["Timestamp"]]
+    irradiance_df['Timestamp'] = pd.to_datetime(irradiance_df['Timestamp'])
 
     export_df = pd.read_excel(export_file_path, engine="openpyxl")
-    export_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in export_df["Timestamp"]]
+    #export_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in export_df["Timestamp"]]
+    export_df['Timestamp'] = pd.to_datetime(export_df['Timestamp'])
 
     return irradiance_df, export_df 
 
@@ -439,7 +441,6 @@ def read_approved_incidents(incidents_file, site_list, roundto: int = 15):
 
     return df_list_active, df_list_closed
 
-
 def read_approved_tracker_inc(tracker_file, roundto: int = 15):
     df_info_trackers = pd.read_excel(tracker_file, sheet_name='Trackers info', engine="openpyxl")
 
@@ -457,15 +458,145 @@ def read_approved_tracker_inc(tracker_file, roundto: int = 15):
 
     return df_tracker_active, df_tracker_closed
 
+def read_curtailment_dataframes(source_folder, geography, geopgraphy_folder, site_selection, period,
+                                irradiance_threshold: int = 20):
+
+    # <editor-fold desc="turn all of this into a data acquistion function!!!">
+    date_start_str, date_end_str = inputs.choose_period_of_analysis(period)
+    date_start = datetime.strptime(date_start_str, '%Y-%m-%d')
+    date_end = datetime.strptime(date_end_str, '%Y-%m-%d')
+
+    year = date_start.year
+    dest_file_suffix = date_start.strftime("%y-%b-%d") + "to" + date_end.strftime("%y-%b-%d")
+
+    curtailment_folder = geopgraphy_folder + "/Curtailment - File Misc/Curtailment Input/"
+    info_folder = geopgraphy_folder + "/Info&Templates/"
+    dest_folder = geopgraphy_folder + "/Curtailment - File Misc/"
+    dest_file = dest_folder + "Curtailment Results/Curtailment_" + geography + "_" + dest_file_suffix + ".xlsx"
+
+    irradiance_file_path = geopgraphy_folder + "/Irradiance " + geography + "/Irradiance_corrected_" + geography + \
+                          "_1m_" + str(year) + ".xlsx"  # will be picked by use
+    export_file_path = geopgraphy_folder + "/Exported Energy " + geography + "/All_Power_Exported_" + geography + \
+                     "_1m_" + str(year) + ".xlsx"
+
+    general_info_path = info_folder + "General Info " + geography + ".xlsx"
+    event_tracker_file_path = geopgraphy_folder + '/Event Tracker/Event Tracker ' + geography +  '.xlsx'
+
+    active_power_setpoint_file_path= curtailment_folder + "PPC - Active Power setpoint_" + str(year) + ".xlsx"
+
+    # </editor-fold>
+
+    # <editor-fold desc="Read irradiance, export and setpoint data">
+    print("Reading irradiance and export data...")
+    df_all_irradiance, df_all_power = read_irradiance_export(irradiance_file_path, export_file_path)
+    df_irradiance_period = df_all_irradiance[(df_all_irradiance["Timestamp"] > date_start) &
+                                             (df_all_irradiance["Timestamp"] < date_end)]
+    df_power_period = df_all_power[(df_all_power["Timestamp"] > date_start) &
+                                        (df_all_power["Timestamp"] < date_end)]
+
+    print("Reading active power setpoint data...")
+    active_power_setpoint_df = pd.read_excel(active_power_setpoint_file_path, engine = 'openpyxl')
+    active_power_setpoint_df['Timestamp'] = pd.to_datetime(active_power_setpoint_df['Timestamp'])
+    active_power_setpoint_period = active_power_setpoint_df[(active_power_setpoint_df["Timestamp"] > date_start) &
+                                                            (active_power_setpoint_df["Timestamp"] < date_end)]
+
+    print("Reading general info data...")
+    component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, budget_pr, \
+    budget_export, all_site_info = get_general_info_dataframes(general_info_path)
+
+    # </editor-fold>
+
+    # <editor-fold desc="Read Event Tracker incidents">
+    print("Reading incidents data...")
+    df_eventtracker_all = pd.read_excel(event_tracker_file_path,
+                                        sheet_name=['Active Events', 'Closed Events', 'Active tracker incidents',
+                                                    'Closed tracker incidents', 'FMECA'], engine='openpyxl')
+
+    df_active_eventtracker = df_eventtracker_all['Active Events']
+    df_closed_eventtracker = df_eventtracker_all['Closed Events']
+
+    # Create all component incidents df
+    incidents = pd.concat([df_eventtracker_all['Active Events'], df_eventtracker_all['Closed Events']])
+
+    # </editor-fold>
+
+    print("Data acquisition complete")
+
+    return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
+           budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file
+
+def read_clipping_dataframes(source_folder, geography, geopgraphy_folder, site_selection, period,
+                                irradiance_threshold: int = 20):
+
+    # <editor-fold desc="turn all of this into a data acquistion function!!!">
+    date_start_str, date_end_str = inputs.choose_period_of_analysis(period)
+    date_start = datetime.strptime(date_start_str, '%Y-%m-%d')
+    date_end = datetime.strptime(date_end_str, '%Y-%m-%d')
+
+    year = date_start.year
+    dest_file_suffix = date_start.strftime("%y-%b-%d") + "to" + date_end.strftime("%y-%b-%d")
+
+    clipping_folder = geopgraphy_folder + "/Event Tracker/Clipping Analysis/"
+    folder_img = clipping_folder + "images/"
+    info_folder = geopgraphy_folder + "/Info&Templates/"
+
+    dest_file = clipping_folder + "Clipping_Analysis_" + geography + "_" + dest_file_suffix + ".xlsx"
+
+
+    irradiance_file_path = geopgraphy_folder + "/Irradiance " + geography + "/Irradiance_corrected_" + geography + \
+                          "_1m_" + str(year) + ".xlsx"  # will be picked by use
+    export_file_path = geopgraphy_folder + "/Exported Energy " + geography + "/All_Power_Exported_" + geography + \
+                     "_1m_" + str(year) + ".xlsx"
+
+    general_info_path = info_folder + "General Info " + geography + ".xlsx"
+    event_tracker_file_path = geopgraphy_folder + '/Event Tracker/Event Tracker ' + geography +  '.xlsx'
+
+
+    # </editor-fold>
+
+    # <editor-fold desc="Read irradiance, export and setpoint data">
+    print("Reading irradiance and export data...")
+    df_all_irradiance, df_all_power = read_irradiance_export(irradiance_file_path, export_file_path)
+    df_irradiance_period = df_all_irradiance[(df_all_irradiance["Timestamp"] > date_start) &
+                                             (df_all_irradiance["Timestamp"] < date_end)]
+    df_power_period = df_all_power[(df_all_power["Timestamp"] > date_start) &
+                                        (df_all_power["Timestamp"] < date_end)]
+
+
+
+    print("Reading general info data...")
+    component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, budget_pr, \
+    budget_export, all_site_info = get_general_info_dataframes(general_info_path)
+
+    # </editor-fold>
+
+    # <editor-fold desc="Read Event Tracker incidents">
+    print("Reading incidents data...")
+    df_eventtracker_all = pd.read_excel(event_tracker_file_path,
+                                        sheet_name=['Active Events', 'Closed Events', 'Active tracker incidents',
+                                                    'Closed tracker incidents', 'FMECA'], engine='openpyxl')
+
+    df_active_eventtracker = df_eventtracker_all['Active Events']
+    df_closed_eventtracker = df_eventtracker_all['Closed Events']
+
+    # Create all component incidents df
+    incidents = pd.concat([df_eventtracker_all['Active Events'], df_eventtracker_all['Closed Events']])
+
+    # </editor-fold>
+
+    print("Data acquisition complete")
+
+    return df_irradiance_period, df_power_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
+           budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, folder_img
 
 # <editor-fold desc="ET Functions">
 
 def get_files_to_add(date_start, date_end, dmr_folder, geography, no_update: bool = False):
     if no_update == False:
         if date_end == None:
-            date_list = pd.date_range(date_start, date_start, freq = 'd')
+            date_list = pd.date_range(date_start, date_start, freq='d')
         else:
-            date_list = pd.date_range(date_start, date_end, freq = 'd')
+            date_list = pd.date_range(date_start, date_end, freq='d')
 
         report_files_dict = {}
         irradiance_dict = {}
