@@ -145,25 +145,31 @@ def update_dump_file(irradiance_files, all_irradiance_file, data_type: str = 'Ir
 
 
 def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geography, date, site_selection):
-    ar_dir = os.path.dirname(alarm_report_path)
+    geography_folder = os.path.dirname(alarm_report_path)
+    report_files_dict = {}
     #print("this is dir: " + dir)
 
     previous_date = datetime.strptime(date, '%Y-%m-%d') - dt.timedelta(days=1)
     prev_day = str(previous_date.day) if previous_date.day >= 10 else str(0) + str(previous_date.day)
     prev_month = str(previous_date.month) if previous_date.month >= 10 else str(0) + str(previous_date.month)
 
-    report_template_path = ar_dir + '/Info&Templates/Reporting_' + geography + '_Sites_Template.xlsx'
-    general_info_path = ar_dir + '/Info&Templates/General Info ' + geography + '.xlsx'
-    event_tracker_path = ar_dir + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
-    previous_dmr_path = ar_dir + '/Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "") + '.xlsx'
+    report_template_path = geography_folder + '/Info&Templates/Reporting_' + geography + '_Sites_Template.xlsx'
+    general_info_path = geography_folder + '/Info&Templates/General Info ' + geography + '.xlsx'
+    event_tracker_path = geography_folder + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
+    # previous_dmr_path = geography_folder + '/Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "") + '.xlsx'
 
-    print(previous_dmr_path)
+    folder_content = os.listdir(geography_folder)
+    previous_dmr_path = 'Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "")
+    report_file_list = [geography_folder + '/' + file for file in folder_content if previous_dmr_path in file]
+
+
+    print(report_file_list)
 
     #READ FILES AND EXTRACT RAW DATAFRAMES
     print('Reading Daily Alarm Report...')
     df_all, incidents_file, tracker_incidents_file, irradiance_df, prev_active_events, prev_active_tracker_events \
         = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path,
-                                                   previous_dmr_path)
+                                                   report_file_list)
     print('Daily Alarm Report read!')
     print('newfile: ' + incidents_file)
     print('newtrackerfile: ' + tracker_incidents_file)

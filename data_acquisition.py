@@ -8,18 +8,23 @@ import statistics
 import data_treatment
 
 
-def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, previous_dmr_path):
+def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, report_file_list):
+
     dir = os.path.dirname(alarm_report_path)
     basename = os.path.basename(alarm_report_path)
     date_finder = re.search(r'\d\d\d\d-\d\d-\d\d', alarm_report_path)
-    date = date_finder.group()
+    date = datetime.strptime(date_finder.group(), "%Y-%m-%d")
     geography_report_match = re.search(r'\w+?_', basename)
     geography_report = geography_report_match.group()[:-1]
     print(geography_report)
 
-    day = date[-2:]     #so naive please change this later
-    month = date[-5:-3]
-    year = date[:4]
+    day = date.day #date[-2]
+    day_str = str(day) if day >= 10 else "0" + str(day)
+
+    month = date.month #date[-5:-3]
+    month_str = str(month) if month >= 10 else "0" + str(month)
+
+    year = date.year #date[:4]
 
     df_all = pd.read_excel(alarm_report_path, engine="openpyxl")
     df_all['InSolar Check'] = ""
@@ -31,36 +36,48 @@ def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_track
     irradiance_data = pd.read_excel(irradiance_file_path, engine="openpyxl")
 
     try:
-        all_prev_active_events = pd.read_excel(previous_dmr_path,
-                                               sheet_name=["Active incidents", "Active tracker incidents"],
-                                               engine="openpyxl")
-        #all_prev_active_events = pd.concat([all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])
-        #df_all = pd.concat([df_all, all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])[df_all_columns]
+        for file in report_file_list:
+            report_prev_active_events = pd.read_excel(file,
+                                                   sheet_name=["Active incidents", "Active tracker incidents"],
+                                                   engine="openpyxl")
+            #all_prev_active_events = pd.concat([all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])
+            #df_all = pd.concat([df_all, all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])[df_all_columns]
 
-        prev_active_events = all_prev_active_events['Active incidents']
-        prev_active_tracker_events = all_prev_active_events['Active tracker incidents']
+            prev_active_events = report_prev_active_events['Active incidents']
+            prev_active_tracker_events = report_prev_active_events['Active tracker incidents']
 
-        prev_active_events['InSolar Check'] = "x"
-        prev_active_tracker_events['InSolar Check'] = "x"
+            prev_active_events['InSolar Check'] = "x"
+            prev_active_tracker_events['InSolar Check'] = "x"
+
+            try:
+                all_prev_active_events = pd.concat([all_prev_active_events,prev_active_events])
+                all_prev_active_tracker_events = pd.concat([all_prev_active_tracker_events, prev_active_tracker_events])
+
+            except NameError:
+                all_prev_active_events = prev_active_events
+                all_prev_active_tracker_events = prev_active_tracker_events
+
+        all_prev_active_events.drop_duplicates(subset="ID", inplace = True)
+        all_prev_active_tracker_events.drop_duplicates(subset="ID", inplace = True)
 
         #print(df_all.columns)
     except FileNotFoundError:
         print("Previous Daily Monitoring Report not found.")
         try:
-            all_prev_active_events = pd.read_excel(event_tracker_path,
+            report_prev_active_events = pd.read_excel(event_tracker_path,
                                                    sheet_name=["Active Events", "Active tracker incidents"],
                                                    engine="openpyxl")
 
-            prev_active_events = all_prev_active_events['Active Events']
-            prev_active_tracker_events = all_prev_active_events['Active tracker incidents']
+            prev_active_events = report_prev_active_events['Active Events']
+            prev_active_tracker_events = report_prev_active_events['Active tracker incidents']
 
         except FileNotFoundError:
             print("Event Tracker not found.")
 
-    newfile = dir + '/Incidents' + str(day) + '-' + str(month) + str(geography_report) + '.xlsx'
-    newtrackerfile = dir + '/Tracker_Incidents' + str(day) + '-' + str(month) + str(geography_report) + '.xlsx'
+    newfile = dir + '/Incidents' + day_str + '-' + month_str + str(geography_report) + '.xlsx'
+    newtrackerfile = dir + '/Tracker_Incidents' + day_str + '-' + month_str + str(geography_report) + '.xlsx'
 
-    return df_all, newfile, newtrackerfile, irradiance_data, prev_active_events, prev_active_tracker_events
+    return df_all, newfile, newtrackerfile, irradiance_data, all_prev_active_events, all_prev_active_tracker_events
 
 
 def read_general_info(general_info_path):

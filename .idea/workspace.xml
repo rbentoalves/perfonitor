@@ -7,12 +7,8 @@
     <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Changed describing function to be more UPesque">
       <change beforePath="$PROJECT_DIR$/../monitools/windows.py" beforeDir="false" afterPath="$PROJECT_DIR$/../monitools/windows.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Daily Monitoring Report.py" beforeDir="false" afterPath="$PROJECT_DIR$/Daily Monitoring Report.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/calculations.py" beforeDir="false" afterPath="$PROJECT_DIR$/calculations.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_acquisition.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_acquisition.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/event_tracker_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/event_tracker_manager.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/file_creation.py" beforeDir="false" afterPath="$PROJECT_DIR$/file_creation.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/visuals.py" beforeDir="false" afterPath="$PROJECT_DIR$/visuals.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -20,7 +16,7 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
-    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../monitools" />
   </component>
   <component name="GitSEFilterConfiguration">
     <file-type-list>
