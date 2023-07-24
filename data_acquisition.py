@@ -1,11 +1,11 @@
 import pandas as pd
 from datetime import datetime
-import inputs
+import perfonitor.inputs as inputs
+import perfonitor.data_treatment as data_treatment
 import re
 import os
 import PySimpleGUI as sg
 import statistics
-import data_treatment
 
 
 def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, report_file_list):

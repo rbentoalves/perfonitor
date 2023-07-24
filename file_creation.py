@@ -8,11 +8,11 @@ import sys
 import PySimpleGUI as sg
 import openpyxl
 import xlsxwriter
-import calculations as calculations
-import data_acquisition as data_acquisition
-import inputs as inputs
-import data_treatment as data_treatment
-import data_analysis as data_analysis
+import perfonitor.calculations as calculations
+import perfonitor.data_acquisition as data_acquisition
+import perfonitor.inputs as inputs
+import perfonitor.data_treatment as data_treatment
+import perfonitor.data_analysis as data_analysis
 
 
 #File creation/edit/removal-------------------------------------------------------------------------------------

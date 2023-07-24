@@ -2,10 +2,10 @@ import re
 import sys
 import pandas as pd
 import numpy as np
-import data_treatment
-import data_acquisition
-import inputs
-import visuals
+import perfonitor.data_treatment as data_treatment
+import perfonitor.data_acquisition as data_acquisition
+import perfonitor.inputs as inputs
+import perfonitor.visuals as visuals
 import calendar
 from datetime import datetime
 import timeit
