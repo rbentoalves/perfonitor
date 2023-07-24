@@ -4,7 +4,7 @@ import perfonitor.data_acquisition as data_acquisition
 import perfonitor.data_treatment as data_treatment
 import perfonitor.file_creation as file_creation
 import perfonitor.inputs as inputs
-import monitools.windows as windows
+import windows as windows
 import re
 import perfonitor.visuals as visuals
 from datetime import datetime
