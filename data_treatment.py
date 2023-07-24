@@ -3,7 +3,7 @@ from datetime import datetime
 import re
 import PySimpleGUI as sg
 import math
-import inputs as inputs
+import perfonitor.inputs as inputs
 import numpy as np
 import os
 import openpyxl
