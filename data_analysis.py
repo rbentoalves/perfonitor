@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-import perfonitor.data_treatment
+import perfonitor.data_treatment as data_treatment
 
 
 # Analysis of incidents ---------------------------------------------------------------------------------------------
