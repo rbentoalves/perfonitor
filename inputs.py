@@ -39,6 +39,32 @@ def input_date(startend: str = "start"):
 
     return date
 
+def input_file(desktop_path):
+
+    # Create interface
+    sg.theme('DarkAmber')  # Add a touch of color
+    # All the stuff inside your window.
+    layout = [[sg.Text('Select "General Info" file of geography')],
+              [sg.FileBrowse(target='-FILE-', initial_folder = desktop_path),
+               sg.In(key='-FILE-', text_color='black', size=(20, 1), enable_events=True, readonly=True, visible=True)],
+              [sg.Button('Submit'), sg.Exit()]]
+    # Create the Window
+    window = sg.Window('Choose date', layout)
+    # Event Loop to process "events" and get the "values" of the inputs
+
+    while True:
+        event, values = window.read()
+
+        if event == sg.WIN_CLOSED or event == 'Exit':  # if user closes window or clicks exit
+            break
+        if event == 'Submit':
+            file_path = values['-FILE-']
+            return file_path
+
+    window.close()
+
+    return
+
 
 def input_date_and_time():
     hour = [*range(24)]

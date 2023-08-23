@@ -1787,8 +1787,8 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
 
         setpoint_column = df_curtailment_events_site.columns[1]
 
-        # print(df_curtailment_events_site)
-        # print(setpoint_column)
+        print(df_curtailment_events_site)
+        print(setpoint_column)
 
         # <editor-fold desc="Get timestamps of curtailment events">
         end_timestamps = df_curtailment_events_site.loc[
@@ -1799,6 +1799,7 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
         start_timestamps_index = list(start_timestamps_index.insert(0, 0))[:-1]
 
         start_data = df_curtailment_events_site.iloc[start_timestamps_index, :]
+        #start_timestamps = list(start_data.index)
         start_timestamps = list(start_data["Timestamp"])
         setpoints = list(start_data[setpoint_column])
 
@@ -1808,127 +1809,133 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
 
         # print(start_timestamps)
 
-        data_for_df = {"Site Name": [site] * len(setpoints),
-                       "Related Component": [site] * len(setpoints),
-                       "Capacity Related Component": [nominal_power] * len(setpoints),
-                       "Setpoint": setpoints,
-                       "Event Start Time": start_timestamps,
-                       "Event End Time": end_timestamps,
-                       "Rounded Event Start Time": pd.Series(
-                           [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
-                            start_timestamps]).dt.ceil("1min"),
-                       "Rounded Event End Time": pd.Series(
-                           [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
-                            end_timestamps]).dt.ceil("1min"),
-                       "Duration (h)": [0] * len(setpoints),
-                       "Active hours (h)": [0] * len(setpoints),
-                       "Expected Energy Loss": [0] * len(setpoints),
-                       "Corrected Expected Energy Loss": [0] * len(setpoints),
-                       "Comments": [str(site + " is curtailed at " + str(setpoint) + " kW") for setpoint in setpoints]}
+        if len(start_timestamps) == 0:
+            pass
+        else:
+            data_for_df = {"Site Name": [site] * len(setpoints),
+                           "Related Component": [site] * len(setpoints),
+                           "Capacity Related Component": [nominal_power] * len(setpoints),
+                           "Setpoint": setpoints,
+                           "Event Start Time": start_timestamps,
+                           "Event End Time": end_timestamps,
+                           "Rounded Event Start Time": pd.Series(
+                               [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
+                                start_timestamps]).dt.ceil("1min"),
+                           "Rounded Event End Time": pd.Series(
+                               [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
+                                end_timestamps]).dt.ceil("1min"),
+                           "Duration (h)": [0] * len(setpoints),
+                           "Active hours (h)": [0] * len(setpoints),
+                           "Expected Energy Loss": [0] * len(setpoints),
+                           "Corrected Expected Energy Loss": [0] * len(setpoints),
+                           "Comments": [str(site + " is curtailed at " + str(setpoint) + " kW") for setpoint in
+                                        setpoints]}
 
-        curtailment_inc_df = pd.DataFrame(data_for_df)
-        curtailment_inc_df["Curtailment Event"] = ["x"] * len(setpoints)
-        curtailment_inc_df = curtailment_inc_df.loc[curtailment_inc_df["Setpoint"] < site_max_active_power_setpoint]
+            curtailment_inc_df = pd.DataFrame(data_for_df)
+            curtailment_inc_df["Curtailment Event"] = ["x"] * len(setpoints)
+            curtailment_inc_df = curtailment_inc_df.loc[curtailment_inc_df["Setpoint"] < site_max_active_power_setpoint]
 
-        for index, row in curtailment_inc_df.iterrows():
-            stime = row['Rounded Event Start Time']
-            etime = row['Rounded Event End Time']
+            for index, row in curtailment_inc_df.iterrows():
+                stime = row['Rounded Event Start Time']
+                etime = row['Rounded Event End Time']
 
-            print(row[["Site Name", "Event Start Time", "Event End Time"]])
+                print(row[["Site Name", "Event Start Time", "Event End Time"]])
 
-            budget_pr_stime = budget_pr.loc[site, datetime.strptime(str(stime.date())[:-2] + "01 00:00:00",
-                                                                    '%Y-%m-%d %H:%M:%S')]
+                budget_pr_stime = budget_pr.loc[site, datetime.strptime(str(stime.date())[:-2] + "01 00:00:00",
+                                                                        '%Y-%m-%d %H:%M:%S')]
 
-            budget_pr_etime = budget_pr.loc[site, datetime.strptime(str(etime.date())[:-2] + "01 00:00:00",
-                                                                    '%Y-%m-%d %H:%M:%S')]
+                budget_pr_etime = budget_pr.loc[site, datetime.strptime(str(etime.date())[:-2] + "01 00:00:00",
+                                                                        '%Y-%m-%d %H:%M:%S')]
 
-            if budget_pr_stime == 0 and budget_pr_etime == 0:
-                curtailment_inc_df.loc[index, "Expected Energy Loss"] = 0
-                curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = 0
-
-            else:
-                slice_power_df_site = power_site.loc[
-                    (power_site['Timestamp'] <= etime) & (power_site['Timestamp'] >= stime)]
-                slice_irradiance_df_site = irradiance_site_curated.loc[
-                    (irradiance_site_curated['Timestamp'] <= etime) & (irradiance_site_curated['Timestamp'] >= stime)]
-
-                power_irradiance_site = pd.merge_asof(slice_irradiance_df_site, slice_power_df_site, on='Timestamp')
-
-                irradiance_column = \
-                list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Irradiance')])])[
-                    0]
-                power_column = list(
-                    power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Active power')])])[
-                    0]
-
-                if power_irradiance_site[irradiance_column].sum() == 0:
-
+                if budget_pr_stime == 0 and budget_pr_etime == 0:
                     curtailment_inc_df.loc[index, "Expected Energy Loss"] = 0
                     curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = 0
-                    curtailment_inc_df.loc[index, "Active Hours (h)"] = 0
-                    curtailment_inc_df.loc[index, "Duration (h)"] = 0
 
                 else:
+                    slice_power_df_site = power_site.loc[
+                        (power_site['Timestamp'] <= etime) & (power_site['Timestamp'] >= stime)]
+                    slice_irradiance_df_site = irradiance_site_curated.loc[
+                        (irradiance_site_curated['Timestamp'] <= etime) & (irradiance_site_curated['Timestamp'] >= stime)]
 
-                    print("Adding budget PR and Available capacity at each moment")
-                    power_irradiance_site[["Budget PR", 'Available Capacity']] = \
-                        [[budget_pr.loc[site, datetime.strptime(str(timestamp.date())[:-2] +
-                                                               "01 00:00:00",'%Y-%m-%d %H:%M:%S')],
-                          (nominal_power - np_incidents_site.loc[(np_incidents_site['Event Start Time'] <= timestamp) &
-                                                                 ((np_incidents_site['Event End Time'] >= timestamp) | (
-                                                                     np_incidents_site['Event End Time'].isna()))][
-                              'Capacity Related Component'].sum()) / nominal_power] for timestamp in
-                                                                                  power_irradiance_site['Timestamp']]
+                    power_irradiance_site = pd.merge_asof(slice_irradiance_df_site, slice_power_df_site, on='Timestamp')
 
-                    print("Correcting Available capacity at each moment")
-                    power_irradiance_site['Available Capacity'] = [value if value > 0 else 0 for value in
-                                                                   power_irradiance_site['Available Capacity']]
+                    irradiance_column = \
+                    list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Irradiance')])])[
+                        0]
+                    power_column = list(
+                        power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Active power')])])[
+                        0]
 
+                    if power_irradiance_site[irradiance_column].sum() == 0:
 
+                        curtailment_inc_df.loc[index, "Expected Energy Loss"] = 0
+                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = 0
+                        curtailment_inc_df.loc[index, "Active Hours (h)"] = 0
+                        curtailment_inc_df.loc[index, "Duration (h)"] = 0
 
-                    # Complete dataframes of power with expected power
-                    print("Expected and Corrected Expected Power at each moment")
-                    power_irradiance_site['Expected Power'] = [
-                        (nominal_power * row["Budget PR"] * row[irradiance_column] / 1000) for index, row in
-                        power_irradiance_site.iterrows()]
-                    power_irradiance_site['Corrected Expected Power'] = [
-                        (nominal_power * row["Budget PR"] * row['Available Capacity'] * row[irradiance_column] / 1000)
-                        for index, row in power_irradiance_site.iterrows()]
+                    else:
 
-                    print("Expected and Corrected Power Clipped at each moment")
-                    power_irradiance_site['Power Lost'] = [(row['Expected Power'] - row[power_column]) if
-                                                           (row['Expected Power'] - row[power_column]) > 0 else 0
-                                                           for index, row in power_irradiance_site.iterrows()]
+                        print("Adding budget PR and Available capacity at each moment")
+                        power_irradiance_site[["Budget PR", 'Available Capacity']] = \
+                            [[budget_pr.loc[site, datetime.strptime(str(timestamp.date())[:-2] +
+                                                                   "01 00:00:00",'%Y-%m-%d %H:%M:%S')],
+                              (nominal_power - np_incidents_site.loc[(np_incidents_site['Event Start Time'] <= timestamp) &
+                                                                     ((np_incidents_site['Event End Time'] >= timestamp) | (
+                                                                         np_incidents_site['Event End Time'].isna()))][
+                                  'Capacity Related Component'].sum()) / nominal_power] for timestamp in
+                                                                                      power_irradiance_site['Timestamp']]
 
-                    power_irradiance_site['Corrected Power Lost'] = [
-                        (row['Corrected Expected Power'] - row[power_column]) if (row['Corrected Expected Power'] - row[
-                            power_column]) > 0 else 0 for index, row in power_irradiance_site.iterrows()]
-
-                    # print(power_irradiance_site)
-
-                    curtailment_inc_df.loc[index, "Expected Energy Loss"] = power_irradiance_site['Power Lost'].sum() / 60 \
-                        if (power_irradiance_site['Power Lost'].sum() / 60) > 0 else 0
-
-                    curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = power_irradiance_site['Corrected Power Lost'].sum() / 60 \
-                        if (power_irradiance_site['Corrected Power Lost'].sum() / 60) > 0 else 0
-
-                    curtailment_inc_df.loc[index, "Duration (h)"] = power_irradiance_site[power_column].count() / 60
-                    curtailment_inc_df.loc[index, "Active Hours (h)"] = power_irradiance_site.loc[
-                                                                            (power_irradiance_site[power_column] <= 0) &
-                                                                            (power_irradiance_site[irradiance_column] > 20)][power_column].count() / 60
+                        print("Correcting Available capacity at each moment")
+                        power_irradiance_site['Available Capacity'] = [value if value > 0 else 0 for value in
+                                                                       power_irradiance_site['Available Capacity']]
 
 
 
-        curtailment_inc_df["Month"] = [timestamp.strftime("%Y-%m")
-                                       for timestamp in curtailment_inc_df["Event Start Time"]]
+                        # Complete dataframes of power with expected power
+                        print("Expected and Corrected Expected Power at each moment")
+                        power_irradiance_site['Expected Power'] = [
+                            (nominal_power * row["Budget PR"] * row[irradiance_column] / 1000) for index, row in
+                            power_irradiance_site.iterrows()]
+                        power_irradiance_site['Corrected Expected Power'] = [
+                            (nominal_power * row["Budget PR"] * row['Available Capacity'] * row[irradiance_column] / 1000)
+                            for index, row in power_irradiance_site.iterrows()]
 
-        df_month = curtailment_inc_df.groupby(['Month']).sum()[["Expected Energy Loss", "Corrected Expected Energy Loss"]]
+                        print("Expected and Corrected Power Clipped at each moment")
+                        power_irradiance_site['Power Lost'] = [(row['Expected Power'] - row[power_column]) if
+                                                               (row['Expected Power'] - row[power_column]) > 0 else 0
+                                                               for index, row in power_irradiance_site.iterrows()]
 
-        # print(curtailment_inc_df)
-        curtailment_inc_df["Energy Lost (MWh)"] = curtailment_inc_df["Corrected Expected Energy Loss"]
-        curtailment_events_by_site[site] = curtailment_inc_df
-        monthly_curtailment_by_site[site] = df_month
+                        power_irradiance_site['Corrected Power Lost'] = [
+                            (row['Corrected Expected Power'] - row[power_column]) if (row['Corrected Expected Power'] - row[
+                                power_column]) > 0 else 0 for index, row in power_irradiance_site.iterrows()]
+
+                        # print(power_irradiance_site)
+
+                        curtailment_inc_df.loc[index, "Expected Energy Loss"] = power_irradiance_site['Power Lost'].sum() / 60 \
+                            if (power_irradiance_site['Power Lost'].sum() / 60) > 0 else 0
+
+                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = power_irradiance_site['Corrected Power Lost'].sum() / 60 \
+                            if (power_irradiance_site['Corrected Power Lost'].sum() / 60) > 0 else 0
+
+                        curtailment_inc_df.loc[index, "Duration (h)"] = power_irradiance_site[power_column].count() / 60
+                        curtailment_inc_df.loc[index, "Active Hours (h)"] = power_irradiance_site.loc[
+                                                                                (power_irradiance_site[power_column] <= 0) &
+                                                                                (power_irradiance_site[irradiance_column] > 20)][power_column].count() / 60
+
+
+
+            curtailment_inc_df["Month"] = [timestamp.strftime("%Y-%m")
+                                           for timestamp in curtailment_inc_df["Event Start Time"]]
+
+            df_month = curtailment_inc_df.groupby(['Month']).sum()[["Expected Energy Loss", "Corrected Expected Energy Loss"]]
+
+            # print(curtailment_inc_df)
+            curtailment_inc_df["Energy Lost (MWh)"] = curtailment_inc_df["Corrected Expected Energy Loss"]
+            curtailment_events_by_site[site] = curtailment_inc_df
+            monthly_curtailment_by_site[site] = df_month
     # </editor-fold>
+
+    site_list = [site for site in site_list if site in monthly_curtailment_by_site.keys()]
 
     return curtailment_events_by_site, monthly_curtailment_by_site, site_list, dest_file, component_data, fmeca_data
 
@@ -1942,6 +1949,7 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
 
     # <editor-fold desc="Clipping Calculation">
     summaries_by_site = {}
+    graphs_by_site = {}
 
 
     for site in site_selection:
@@ -2036,37 +2044,38 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
 
         #print('Done')
 
-    # Create daily and monthly summaries --------------------------------------------------------------------------------
+        # Create daily and monthly summaries --------------------------------------------------------------------------------
 
-    daily_summary = power_irradiance_site.groupby(['Day']).sum()[
-                        [power_column, "Power Clipped", "Corrected Power Clipped"]] / 60
-    monthly_summary = power_irradiance_site.groupby(['Month']).sum()[
-                          [power_column, "Power Clipped", "Corrected Power Clipped"]] / 60
+        daily_summary = power_irradiance_site.groupby(['Day']).sum()[
+                            [power_column, "Power Clipped", "Corrected Power Clipped"]] / 60
+        monthly_summary = power_irradiance_site.groupby(['Month']).sum()[
+                              [power_column, "Power Clipped", "Corrected Power Clipped"]] / 60
 
-    daily_summary['% of loss'] = daily_summary["Power Clipped"] / (
-            daily_summary[power_column] + daily_summary["Power Clipped"]) * 100
-    monthly_summary['% of loss'] = monthly_summary["Power Clipped"] / (
-            monthly_summary[power_column] + monthly_summary["Power Clipped"]) * 100
-    # daily_summary['% of loss'] = ["{:.2%}".format(value) for value in daily_summary['% of loss']]
+        daily_summary['% of loss'] = daily_summary["Power Clipped"] / (
+                daily_summary[power_column] + daily_summary["Power Clipped"]) * 100
+        monthly_summary['% of loss'] = monthly_summary["Power Clipped"] / (
+                monthly_summary[power_column] + monthly_summary["Power Clipped"]) * 100
+        # daily_summary['% of loss'] = ["{:.2%}".format(value) for value in daily_summary['% of loss']]
 
-    daily_summary['% of loss corrected'] = daily_summary["Corrected Power Clipped"] / (
-            daily_summary[power_column] + daily_summary["Corrected Power Clipped"]) * 100
-    monthly_summary['% of loss corrected'] = monthly_summary["Corrected Power Clipped"] / (
-            monthly_summary[power_column] + monthly_summary["Corrected Power Clipped"]) * 100
-    # daily_summary['% of loss corrected'] = ["{:.2%}".format(value) for value in daily_summary['% of loss corrected']]
+        daily_summary['% of loss corrected'] = daily_summary["Corrected Power Clipped"] / (
+                daily_summary[power_column] + daily_summary["Corrected Power Clipped"]) * 100
+        monthly_summary['% of loss corrected'] = monthly_summary["Corrected Power Clipped"] / (
+                monthly_summary[power_column] + monthly_summary["Corrected Power Clipped"]) * 100
+        # daily_summary['% of loss corrected'] = ["{:.2%}".format(value) for value in daily_summary['% of loss corrected']]
 
-    # Save summaries
-    summaries['Daily'] = daily_summary
-    summaries['Monthly'] = monthly_summary
-    summaries_by_site[site] = summaries
+        # Save summaries
+        summaries['Daily'] = daily_summary
+        summaries['Monthly'] = monthly_summary
+        summaries_by_site[site] = summaries
 
-    # Plot graphs
-    graphs_by_gran = {}
+        # Plot graphs
+        graphs_by_gran = {}
 
 
-    # </editor-fold>
+        # </editor-fold>
 
-    graphs_by_site = visuals.clipping_visuals(summaries, folder_img, site)
+        graphs_site = visuals.clipping_visuals(summaries, folder_img, site)
+        graphs_by_site[site] = graphs_site
 
     return summaries_by_site, site_selection, dest_file, component_data, fmeca_data, graphs_by_site
 

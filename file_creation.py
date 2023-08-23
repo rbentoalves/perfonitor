@@ -146,6 +146,7 @@ def update_dump_file(irradiance_files, all_irradiance_file, data_type: str = 'Ir
 
 def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geography, date, site_selection):
     geography_folder = os.path.dirname(alarm_report_path)
+    print(site_selection)
     report_files_dict = {}
     #print("this is dir: " + dir)
 
@@ -265,11 +266,12 @@ def dmrprocess1(site_selection: list = []):
             print(Alarm_report_path)
             print(geography)
             print(geography_report)
+            print(site_selection)
             if "Daily" and "Alarm" and "Report" in Alarm_report_path and geography == geography_report and\
                     "Irradiance" in irradiance_file_path:
 
                 incidents_file, tracker_incidents_file, all_component_data = dmr_create_incidents_files(
-                    Alarm_report_path,irradiance_file_path, geography, date, site_selection)
+                    Alarm_report_path, irradiance_file_path, geography, date, site_selection)
                 sg.popup('All incident files are ready for approval', no_titlebar=True)
                 window.close()
                 return incidents_file, tracker_incidents_file, geography, date, all_component_data

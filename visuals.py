@@ -142,7 +142,7 @@ def clipping_visuals(summaries, folder_img, site):
 
     graphs_by_type["% of loss"] = graphs
 
-    graphs_by_site[site] = graphs_by_type
+    graphs_by_type
 
 
-    return graphs_by_site
+    return graphs_by_type

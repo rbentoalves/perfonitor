@@ -632,6 +632,7 @@ def remove_after_sunset_events(site_list, df_input, df_info_sunlight, active_df:
             # get site dataframe
             df = df_input[site]
             # check if dataframe is not empty, in case it is then go straight to assigning the new df to the new df list
+            print(df_info_sunlight)
             if not df.empty:
                 # Get index of site in info_sunlight dataframe
                 index_site_array = df_info_sunlight[df_info_sunlight['Site'] == site].index.values
