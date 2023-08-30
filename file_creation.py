@@ -209,7 +209,7 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
 
     # JOIN INCIDENT TABLES AND DMR TABLES
     df_list_active = data_treatment.complete_dataset_existing_incidents(df_list_active, prev_active_events)
-    df_tracker_active = pd.concat([df_tracker_active, prev_active_tracker_events])
+    df_tracker_active = pd.concat([df_tracker_active, prev_active_tracker_events])[df_tracker_active.columns.to_list()]
 
     # CREATE INCIDENTS FILE
 

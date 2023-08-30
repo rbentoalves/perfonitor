@@ -72,7 +72,7 @@ def clipping_visuals(summaries, folder_img, site):
 
         x_label = df.index.name
         x_data = df.index
-        y_label = "Energy Clipped MWh"
+        y_label = "Energy Clipped kWh"
         """y_data = daily_summary[['Power Clipped', "Corrected Power Clipped"]]"""
 
         # x_label = df_name.replace(" over time","")
