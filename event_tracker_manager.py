@@ -610,8 +610,8 @@ def main(site_list, pre_selection, geography):
 
             # <editor-fold desc="Get inputs, files necessary to analysis">
             # Get input of critical information for update, dates and file locations
-            source_folder, geography, geography_folder, recalculate_value, period_list, level, irradiance_threshold \
-                = windows.underperformance_report(site_list, pre_selection, geography)
+            source_folder, geography, geography_folder, recalculate_value, period_list, level, irradiance_threshold, \
+            site_selection = windows.underperformance_report(site_list, pre_selection, geography)
 
             # print(source_folder, "\n" , geography, "\n" , geography_folder, "\n" ,recalculate_value,"\n" , period_list)
 
@@ -648,10 +648,10 @@ def main(site_list, pre_selection, geography):
 
             # <editor-fold desc="Get site list">
             # Get site list from irradiance dataframe
-            site_list = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
+            """site_list = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
                                   df_all_irradiance.loc[:,
                                   df_all_irradiance.columns.str.contains('Irradiance')].columns]))
-            site_list = [data_treatment.correct_site_name(site) for site in site_list]
+            site_list = [data_treatment.correct_site_name(site) for site in site_list]"""
             # </editor-fold>
 
             # <editor-fold desc="Get info dataframes necessary">
@@ -692,6 +692,7 @@ def main(site_list, pre_selection, geography):
 
             # Create all component incidents df
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
+            incidents = incidents[incidents["Site Name"].isin(site_selection)]
 
             if level == "All":
                 pass
