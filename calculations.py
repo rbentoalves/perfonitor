@@ -1509,7 +1509,7 @@ def availability_in_period(incidents, period, component_data, df_all_irradiance,
                           ['Component', 'Nominal Power DC']].set_index('Component').loc[site_list, :]
     fleet_capacity = site_capacities['Nominal Power DC'].sum()
 
-    # Get only incidents that count for availaility, aka, "Not producing"
+    # Get only incidents that count for availability, aka, "Not producing"
     incidents = incidents.loc[incidents['Component Status'] == "Not Producing"].reset_index(None, drop=True)
 
     # Calculate Availability, Active Hours and Corrected Dataframe
@@ -1591,6 +1591,8 @@ def day_end_availability(pr_data_period_df, final_df_to_add, component_data, tra
 
 def down_capacity_calculation(df, component_data):
     df["Active Parents"] = "No"
+    df = df.loc[df["Component Status"] == "Not Producing"]
+
     for index, row in df.iterrows():
         site = row["Site Name"]
         component = row["Related Component"]
@@ -1826,8 +1828,8 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
                                 end_timestamps]).dt.ceil("1min"),
                            "Duration (h)": [0] * len(setpoints),
                            "Active hours (h)": [0] * len(setpoints),
-                           "Expected Energy Loss": [0] * len(setpoints),
-                           "Corrected Expected Energy Loss": [0] * len(setpoints),
+                           "Expected Energy Loss (kWh)": [0] * len(setpoints),
+                           "Corrected Expected Energy Loss (kWh)": [0] * len(setpoints),
                            "Comments": [str(site + " is curtailed at " + str(setpoint) + " kW") for setpoint in
                                         setpoints]}
 
@@ -1848,8 +1850,8 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
                                                                         '%Y-%m-%d %H:%M:%S')]
 
                 if budget_pr_stime == 0 and budget_pr_etime == 0:
-                    curtailment_inc_df.loc[index, "Expected Energy Loss"] = 0
-                    curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = 0
+                    curtailment_inc_df.loc[index, "Expected Energy Loss (kWh)"] = 0
+                    curtailment_inc_df.loc[index, "Corrected Expected Energy Loss (kWh)"] = 0
 
                 else:
                     slice_power_df_site = power_site.loc[
@@ -1858,18 +1860,18 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
                         (irradiance_site_curated['Timestamp'] <= etime) & (irradiance_site_curated['Timestamp'] >= stime)]
 
                     power_irradiance_site = pd.merge_asof(slice_irradiance_df_site, slice_power_df_site, on='Timestamp')
+                    print(power_irradiance_site.columns)
 
-                    irradiance_column = \
-                    list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Irradiance')])])[
-                        0]
+                    irradiance_column = list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.
+                                                                                 contains('Irradiance')])])[0]
                     power_column = list(
-                        power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Active power')])])[
-                        0]
+                        power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.
+                                                            contains('Active power|Power')])])[0]
 
                     if power_irradiance_site[irradiance_column].sum() == 0:
 
-                        curtailment_inc_df.loc[index, "Expected Energy Loss"] = 0
-                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = 0
+                        curtailment_inc_df.loc[index, "Expected Energy Loss (kWh)"] = 0
+                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss (kWh)"] = 0
                         curtailment_inc_df.loc[index, "Active Hours (h)"] = 0
                         curtailment_inc_df.loc[index, "Duration (h)"] = 0
 
@@ -1911,10 +1913,10 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
 
                         # print(power_irradiance_site)
 
-                        curtailment_inc_df.loc[index, "Expected Energy Loss"] = power_irradiance_site['Power Lost'].sum() / 60 \
+                        curtailment_inc_df.loc[index, "Expected Energy Loss (kWh)"] = power_irradiance_site['Power Lost'].sum() / 60 \
                             if (power_irradiance_site['Power Lost'].sum() / 60) > 0 else 0
 
-                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss"] = power_irradiance_site['Corrected Power Lost'].sum() / 60 \
+                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss (kWh)"] = power_irradiance_site['Corrected Power Lost'].sum() / 60 \
                             if (power_irradiance_site['Corrected Power Lost'].sum() / 60) > 0 else 0
 
                         curtailment_inc_df.loc[index, "Duration (h)"] = power_irradiance_site[power_column].count() / 60
@@ -1927,10 +1929,10 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
             curtailment_inc_df["Month"] = [timestamp.strftime("%Y-%m")
                                            for timestamp in curtailment_inc_df["Event Start Time"]]
 
-            df_month = curtailment_inc_df.groupby(['Month']).sum()[["Expected Energy Loss", "Corrected Expected Energy Loss"]]
+            df_month = curtailment_inc_df.groupby(['Month']).sum()[["Expected Energy Loss (kWh)", "Corrected Expected Energy Loss (kWh)"]]
 
             # print(curtailment_inc_df)
-            curtailment_inc_df["Energy Lost (MWh)"] = curtailment_inc_df["Corrected Expected Energy Loss"]
+            curtailment_inc_df["Energy Lost (kWh)"] = curtailment_inc_df["Corrected Expected Energy Loss (kWh)"]
             curtailment_events_by_site[site] = curtailment_inc_df
             monthly_curtailment_by_site[site] = df_month
     # </editor-fold>

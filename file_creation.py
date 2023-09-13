@@ -439,6 +439,7 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
     # </editor-fold>
 
     #Availability Calculation
+
     availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
     all_corrected_incidents, date_range = calculations.availability_in_period(df_incidents, period, component_data,
                                                                               irradiance_df, export_df, budget_pr,
