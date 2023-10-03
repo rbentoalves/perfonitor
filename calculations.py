@@ -1432,7 +1432,10 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
 
     # Join corrected incidents and non-corrected incidents
 
-    corrected_relevant_incidents = pd.concat([incidents_unaltered, corrected_relevant_incidents])
+    if date_start_str == date_end_str:
+        corrected_relevant_incidents = all_corrected_incidents
+    else:
+        corrected_relevant_incidents = pd.concat([incidents_unaltered, corrected_relevant_incidents])
 
     # corrected_relevant_incidents = final_relevant_incidents
     # Calculate period availability-------------------------------------------------------------------------------------

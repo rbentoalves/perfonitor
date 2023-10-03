@@ -655,7 +655,7 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
                                                                        {'criteria': '>=', 'type': 'number',
                                                                         'value': 0.05}]})
 
-                    elif "Portfolio" or "Fault Status" in kpi:
+                    elif "Portfolio" in kpi or "Fault Status" in kpi:
                         ws_sheet.write(cell, value, format_string)
 
                     else:
@@ -1262,7 +1262,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                 else:
                     ws_sheet.set_column(all_column, 0)  # ,None,{'level': 1, 'hidden': True})
 
-            elif "LSBP" in header or "Wellington" in header:
+            elif header in sites:
                 kpis = df_total['index']
                 ws_sheet.write(header_cell, header, format_darkblue_white)
                 data = [x for x in data if not x == ""]
@@ -1386,7 +1386,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                     ws_sheet.set_column(all_column, 23, None,
                                         {'level': 1, 'hidden': True})  # ,None,{'level': 1, 'hidden': True})
 
-            elif "LSBP" in header or "Wellington" in header:
+            elif header in sites:
                 kpis = df_total['index']
                 ws_sheet.write(header_cell, header, format_darkblue_white)
                 data = [x for x in data if not x == ""]
