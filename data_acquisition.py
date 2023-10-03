@@ -719,7 +719,8 @@ def get_general_info_dataframes(general_info_path):
     fleet_capacity = site_capacities['Nominal Power DC'].sum()
 
 
-    return component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info
+    return component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, budget_pr, \
+           budget_export, all_site_info
 
 
 def get_dataframes_to_add_to_EventTracker(report_files,event_tracker_file_path, fmeca_data,

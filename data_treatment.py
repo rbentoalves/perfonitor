@@ -163,12 +163,13 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
 
                             if row_rpi["Failure Mode"] == "Curtailment":
                                 print("Correcting Curtailment")
-                                timestamp_range = export_incident.loc[(export_incident[export_column] <= 0)
-                                                                      & (export_incident[
-                                                                             "Timestamp"] <= rpi_actual_end_time) &
-                                                                      (export_incident[
-                                                                           "Timestamp"] >= rpi_actual_start_time)][
-                                    "Timestamp"].to_list()  # for availability calculation (active incident hours)
+                                print(type(rpi_actual_end_time))
+                                print(type(rpi_actual_start_time))
+
+                                timestamp_range = export_incident.loc[
+                                    (export_incident["Timestamp"] <= rpi_actual_end_time) &
+                                    (export_incident["Timestamp"] >= rpi_actual_start_time) &
+                                    (export_incident[export_column] <= 0)]["Timestamp"].to_list()  # for availability calculation (active incident hours)
 
                                 timestamp_range_eloss = []  # this is empty bc curt excludes the capacity of the
                                 # incident so energy loss needs to be calculated at this incident

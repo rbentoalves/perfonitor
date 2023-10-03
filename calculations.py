@@ -14,7 +14,6 @@ import time
 import datetime as dt
 
 
-
 # <editor-fold desc="Summaries">
 
 def get_events_summary_per_fault_component(components_to_analyse, inverter_incidents_site, inverter_operation,
@@ -952,10 +951,9 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     [row_el[actual_column] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
                      index_el, row_el in
                      df_cleaned_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
-                """energy_lost = (sum([row_el[actual_column] * float(budget_pr_site[row_el['Timestamp'].month].values) for
-                                    index_el, row_el in
-                                    df_cleaned_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
-"""
+                """energy_lost = (sum([row_el[actual_column] * float(budget_pr_site[row_el[
+                'Timestamp'].month].values) for index_el, row_el in 
+                df_cleaned_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000 """
 
             if active_hours < 0:
                 active_hours = duration
@@ -965,7 +963,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
             df.loc[index, 'Energy Lost (MWh)'] = energy_lost / 1000
 
     else:
-        if recalculate == True:
+        if recalculate:
             df = data_treatment.rounddatesclosed_15m("All", df)
             for index, row in df.iterrows():
                 site = row['Site Name']
@@ -1441,19 +1439,23 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
     weighted_downtime = {}
     raw_weighted_downtime = {}
     corrected_relevant_incidents['Weighted Downtime'] = ""
+    corrected_relevant_incidents['Contribution to downtime %'] = ""
+    corrected_relevant_incidents['Raw Contribution to downtime %'] = ""
 
     for index, row in corrected_relevant_incidents.iterrows():
         capacity = row['Capacity Related Component']
         active_hours = row['Active Hours (h)']
         failure_mode = row['Failure Mode']
+        duration = row["Duration (h)"]
+
         if not failure_mode == "Curtailment":
             try:
-                if capacity == float(0):
+                if capacity == float(0) or math.isnan(active_hours) or type(active_hours) == str:
                     weighted_downtime_incident = raw_weighted_downtime_incident = 0
-                elif math.isnan(active_hours):
-                    weighted_downtime_incident = raw_weighted_downtime_incident = 0
-                elif type(active_hours) == str:
-                    weighted_downtime_incident = raw_weighted_downtime_incident = 0
+                # elif math.isnan(active_hours):
+                #    weighted_downtime_incident = raw_weighted_downtime_incident = 0
+                # elif type(active_hours) == str:
+                #    weighted_downtime_incident = raw_weighted_downtime_incident = 0
                 else:
                     weighted_downtime_incident = raw_weighted_downtime_incident = (capacity * active_hours) / \
                                                                                   site_capacity
@@ -1469,6 +1471,18 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
 
         corrected_relevant_incidents.loc[index, 'Weighted Downtime'] = weighted_downtime_incident
         corrected_relevant_incidents.loc[index, 'Raw Weighted Downtime'] = raw_weighted_downtime_incident
+        try:
+            corrected_relevant_incidents.loc[
+                index, 'Contribution to downtime %'] = weighted_downtime_incident/site_active_hours_period
+            corrected_relevant_incidents.loc[
+                index, 'Raw Contribution to downtime %'] = raw_weighted_downtime_incident / site_active_hours_period
+
+        except ZeroDivisionError:
+            corrected_relevant_incidents.loc[
+                index, 'Contribution to downtime %'] = ""
+            corrected_relevant_incidents.loc[
+                index, 'Raw Contribution to downtime %'] = ""
+
 
     weighted_downtime_df = pd.DataFrame.from_dict(weighted_downtime, orient='index',
                                                   columns=['Incident weighted downtime (h)'])
@@ -1490,7 +1504,7 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
 
 
 def availability_in_period(incidents, period, component_data, df_all_irradiance, df_all_export, budget_pr,
-                           irradiance_threshold: int = 20, timestamp: int = 15, date: str = ""):
+                           irradiance_threshold: int = 20, timestamp: int = 15, date: str = "", site_list: list = []):
     granularity = timestamp / 60
 
     # Get dates from period info
@@ -1499,10 +1513,10 @@ def availability_in_period(incidents, period, component_data, df_all_irradiance,
     print(date_range)
 
     # Get site list --------- could be input
-    site_list = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
-                          df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains('Irradiance')].columns]))
-
-    site_list = [data_treatment.correct_site_name(site) for site in site_list]
+    if len(site_list) == 0:
+        site_list = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
+                              df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains('Irradiance')].columns]))
+        site_list = [data_treatment.correct_site_name(site) for site in site_list]
 
     # Get site and fleet capacities --------- could be input
     site_capacities = component_data.loc[component_data['Component Type'] == 'Site'][
@@ -1579,9 +1593,9 @@ def day_end_availability(pr_data_period_df, final_df_to_add, component_data, tra
     pr_data_period_df.insert(3, "Tracker Day-End Availability (%)", dayend_availability_trackers)
     pr_data_period_df["Portfolio"] = [all_site_info.loc[site, "Portfolio"] for site in pr_data_period_df.index.tolist()]
     pr_data_period_df["Fault Status"] = ["Open" if
-                                         sum([float(pr_data_period_df.loc [site, "Day-End Availability (%)"][:-1]),
+                                         sum([float(pr_data_period_df.loc[site, "Day-End Availability (%)"][:-1]),
                                               float(pr_data_period_df.loc[site, "Tracker Day-End Availability (%)"][:-1]
-                                                    )])/2 < 100 else "Closed"
+                                                    )]) / 2 < 100 else "Closed"
                                          for site in pr_data_period_df.index.tolist()]
 
     pr_data_period_df.sort_values(by=["Portfolio", "Day-End Availability (%)"], inplace=True)
@@ -1620,11 +1634,12 @@ def down_capacity_calculation(df, component_data):
 
 def pr_in_period(incidents_period, availability_period, raw_availability_period, period, component_data,
                  df_all_irradiance, df_all_export, budget_pr, budget_export, budget_irradiance,
-                 irradiance_threshold: int = 20, timestamp: int = 15, date: str = ""):
+                 irradiance_threshold: int = 20, timestamp: int = 15, date: str = "", site_list: list = []):
     # Get site list --------- could be input
-    site_list = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
-                          df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains('Irradiance')].columns]))
-    site_list = [data_treatment.correct_site_name(site) for site in site_list]
+    if len(site_list) == 0:
+        site_list = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
+                              df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains('Irradiance')].columns]))
+        site_list = [data_treatment.correct_site_name(site) for site in site_list]
 
     # Get site and fleet capacities --------- could be input
     site_capacities = component_data.loc[component_data['Component Type'] == 'Site'][
@@ -1669,7 +1684,7 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
             actual_column, curated_column, data_gaps_proportion, poa_avg_column = data_treatment.get_actual_irradiance_column(
                 irradiance_site)
 
-            if not actual_column == None:
+            if actual_column is not None:
                 actual_irradiance_site = irradiance_site.loc[:, actual_column]
             else:
                 actual_irradiance_site = irradiance_site.loc[:, poa_avg_column]
@@ -1734,6 +1749,7 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
     return data_period_df
 
+
 # </editor-fold>
 
 
@@ -1741,16 +1757,16 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
 # <editor-fold desc="Curtailment and Clipping">
 
-def curtailment_classic(source_folder, geography, geopgraphy_folder, site_selection, period, irradiance_threshold: int = 20):
-
+def curtailment_classic(source_folder, geography, geopgraphy_folder, site_selection, period,
+                        irradiance_threshold: int = 20):
     df_irradiance, df_power, active_power_setpoint_df, component_data, tracker_data, fmeca_data, site_capacities, \
     fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file = \
         data_acquisition.read_curtailment_dataframes(source_folder, geography, geopgraphy_folder, site_selection,
                                                      period, irradiance_threshold)
 
     site_list_setpoint = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
-                          active_power_setpoint_df.loc[:,
-                          active_power_setpoint_df.columns.str.contains('etpoint')].columns]))
+                                   active_power_setpoint_df.loc[:,
+                                   active_power_setpoint_df.columns.str.contains('etpoint')].columns]))
 
     site_list = [site for site in site_selection if site in site_list_setpoint]
     diff_site_list = list(set(site_selection).difference(site_list))
@@ -1779,7 +1795,7 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
 
         incidents_site = incidents.loc[incidents['Site Name'] == site].reset_index(None, drop=True)
         np_incidents_site = incidents_site.loc[(incidents_site['Component Status'] == "Not Producing") & ~(
-                incidents_site['Failure Mode'] == "Curtailment")]
+            incidents_site['Failure Mode'] == "Curtailment")]
 
         # break
         # get incidents of curtailment for each site
@@ -1801,7 +1817,7 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
         start_timestamps_index = list(start_timestamps_index.insert(0, 0))[:-1]
 
         start_data = df_curtailment_events_site.iloc[start_timestamps_index, :]
-        #start_timestamps = list(start_data.index)
+        # start_timestamps = list(start_data.index)
         start_timestamps = list(start_data["Timestamp"])
         setpoints = list(start_data[setpoint_column])
 
@@ -1857,7 +1873,8 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
                     slice_power_df_site = power_site.loc[
                         (power_site['Timestamp'] <= etime) & (power_site['Timestamp'] >= stime)]
                     slice_irradiance_df_site = irradiance_site_curated.loc[
-                        (irradiance_site_curated['Timestamp'] <= etime) & (irradiance_site_curated['Timestamp'] >= stime)]
+                        (irradiance_site_curated['Timestamp'] <= etime) & (
+                            irradiance_site_curated['Timestamp'] >= stime)]
 
                     power_irradiance_site = pd.merge_asof(slice_irradiance_df_site, slice_power_df_site, on='Timestamp')
                     print(power_irradiance_site.columns)
@@ -1880,18 +1897,17 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
                         print("Adding budget PR and Available capacity at each moment")
                         power_irradiance_site[["Budget PR", 'Available Capacity']] = \
                             [[budget_pr.loc[site, datetime.strptime(str(timestamp.date())[:-2] +
-                                                                   "01 00:00:00",'%Y-%m-%d %H:%M:%S')],
-                              (nominal_power - np_incidents_site.loc[(np_incidents_site['Event Start Time'] <= timestamp) &
-                                                                     ((np_incidents_site['Event End Time'] >= timestamp) | (
-                                                                         np_incidents_site['Event End Time'].isna()))][
-                                  'Capacity Related Component'].sum()) / nominal_power] for timestamp in
-                                                                                      power_irradiance_site['Timestamp']]
+                                                                    "01 00:00:00", '%Y-%m-%d %H:%M:%S')],
+                              (nominal_power -
+                               np_incidents_site.loc[(np_incidents_site['Event Start Time'] <= timestamp) &
+                                                     ((np_incidents_site['Event End Time'] >= timestamp) | (
+                                                         np_incidents_site['Event End Time'].isna()))][
+                                   'Capacity Related Component'].sum()) / nominal_power] for timestamp in
+                             power_irradiance_site['Timestamp']]
 
                         print("Correcting Available capacity at each moment")
                         power_irradiance_site['Available Capacity'] = [value if value > 0 else 0 for value in
                                                                        power_irradiance_site['Available Capacity']]
-
-
 
                         # Complete dataframes of power with expected power
                         print("Expected and Corrected Expected Power at each moment")
@@ -1899,7 +1915,8 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
                             (nominal_power * row["Budget PR"] * row[irradiance_column] / 1000) for index, row in
                             power_irradiance_site.iterrows()]
                         power_irradiance_site['Corrected Expected Power'] = [
-                            (nominal_power * row["Budget PR"] * row['Available Capacity'] * row[irradiance_column] / 1000)
+                            (nominal_power * row["Budget PR"] * row['Available Capacity'] * row[
+                                irradiance_column] / 1000)
                             for index, row in power_irradiance_site.iterrows()]
 
                         print("Expected and Corrected Power Clipped at each moment")
@@ -1908,28 +1925,34 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
                                                                for index, row in power_irradiance_site.iterrows()]
 
                         power_irradiance_site['Corrected Power Lost'] = [
-                            (row['Corrected Expected Power'] - row[power_column]) if (row['Corrected Expected Power'] - row[
-                                power_column]) > 0 else 0 for index, row in power_irradiance_site.iterrows()]
+                            (row['Corrected Expected Power'] - row[power_column]) if (row['Corrected Expected Power'] -
+                                                                                      row[
+                                                                                          power_column]) > 0 else 0 for
+                            index, row in power_irradiance_site.iterrows()]
 
                         # print(power_irradiance_site)
 
-                        curtailment_inc_df.loc[index, "Expected Energy Loss (kWh)"] = power_irradiance_site['Power Lost'].sum() / 60 \
+                        curtailment_inc_df.loc[index, "Expected Energy Loss (kWh)"] = power_irradiance_site[
+                                                                                          'Power Lost'].sum() / 60 \
                             if (power_irradiance_site['Power Lost'].sum() / 60) > 0 else 0
 
-                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss (kWh)"] = power_irradiance_site['Corrected Power Lost'].sum() / 60 \
+                        curtailment_inc_df.loc[index, "Corrected Expected Energy Loss (kWh)"] = power_irradiance_site[
+                                                                                                    'Corrected Power Lost'].sum() / 60 \
                             if (power_irradiance_site['Corrected Power Lost'].sum() / 60) > 0 else 0
 
                         curtailment_inc_df.loc[index, "Duration (h)"] = power_irradiance_site[power_column].count() / 60
                         curtailment_inc_df.loc[index, "Active Hours (h)"] = power_irradiance_site.loc[
-                                                                                (power_irradiance_site[power_column] <= 0) &
-                                                                                (power_irradiance_site[irradiance_column] > 20)][power_column].count() / 60
-
-
+                                                                                (power_irradiance_site[
+                                                                                     power_column] <= 0) &
+                                                                                (power_irradiance_site[
+                                                                                     irradiance_column] > 20)][
+                                                                                power_column].count() / 60
 
             curtailment_inc_df["Month"] = [timestamp.strftime("%Y-%m")
                                            for timestamp in curtailment_inc_df["Event Start Time"]]
 
-            df_month = curtailment_inc_df.groupby(['Month']).sum()[["Expected Energy Loss (kWh)", "Corrected Expected Energy Loss (kWh)"]]
+            df_month = curtailment_inc_df.groupby(['Month']).sum()[
+                ["Expected Energy Loss (kWh)", "Corrected Expected Energy Loss (kWh)"]]
 
             # print(curtailment_inc_df)
             curtailment_inc_df["Energy Lost (kWh)"] = curtailment_inc_df["Corrected Expected Energy Loss (kWh)"]
@@ -1941,18 +1964,17 @@ def curtailment_classic(source_folder, geography, geopgraphy_folder, site_select
 
     return curtailment_events_by_site, monthly_curtailment_by_site, site_list, dest_file, component_data, fmeca_data
 
-def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection, period, irradiance_threshold: int = 20):
 
+def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection, period,
+                     irradiance_threshold: int = 20):
     df_irradiance, df_power, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
     budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, folder_img = \
         data_acquisition.read_clipping_dataframes(source_folder, geography, geopgraphy_folder, site_selection, period,
                                                   irradiance_threshold)
 
-
     # <editor-fold desc="Clipping Calculation">
     summaries_by_site = {}
     graphs_by_site = {}
-
 
     for site in site_selection:
         incidents_site = incidents.loc[incidents['Site Name'] == site].reset_index(None, drop=True)
@@ -1994,13 +2016,13 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
         power_irradiance_site = pd.merge_asof(irradiance_site_curated, power_site, on='Timestamp')
         power_irradiance_site = power_irradiance_site.loc[power_irradiance_site['Timestamp'] >=
                                                           datetime(start_of_reporting.year, start_of_reporting.month,
-                                                           start_of_reporting.day, 0, 0, 0)]
+                                                                   start_of_reporting.day, 0, 0, 0)]
 
         # power_irradiance_site[['Budget PR','Available Capacity']] = [budget_pr.loc[budget_pr['Site'] == site_str][datetime.strptime(str(timestamp.date())[:-2] + "01 00:00:00", '%Y-%m-%d %H:%M:%S')][0] for timestamp in power_irradiance_site['Timestamp']]
 
         print("Adding budget PR and Available capacity at each moment")
         power_irradiance_site[['Budget PR', 'Available Capacity']] = [[budget_pr.loc[site, datetime.strptime(str(
-            timestamp.date())[:-2] + "01 00:00:00",'%Y-%m-%d %H:%M:%S')], (nominal_power - np_incidents_site.loc[
+            timestamp.date())[:-2] + "01 00:00:00", '%Y-%m-%d %H:%M:%S')], (nominal_power - np_incidents_site.loc[
             (np_incidents_site['Event Start Time'] <= timestamp) & (np_incidents_site['Event End Time'] >= timestamp)][
             'Capacity Related Component'].sum()) / nominal_power] for timestamp in power_irradiance_site['Timestamp']]
 
@@ -2009,7 +2031,7 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
                                                        power_irradiance_site['Available Capacity']]
 
         irradiance_column = \
-        list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Irradiance')])])[0]
+            list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('Irradiance')])])[0]
         power_column = list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.contains('ower')])])[
             0]
 
@@ -2030,7 +2052,7 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
         print("Expected and Corrected Power Clipped at each moment")
         power_irradiance_site['Power Clipped'] = [
             (row['Expected Power'] - row[power_column]) if row[power_column] >= max_export_capacity_buffed and (
-                    row['Expected Power'] - row[power_column]) > 0 else 0 for index, row in
+                row['Expected Power'] - row[power_column]) > 0 else 0 for index, row in
             power_irradiance_site.iterrows()]
 
         power_irradiance_site['Corrected Power Clipped'] = [
@@ -2043,8 +2065,7 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
         power_irradiance_site[['Day', 'Month']] = [[timestamp.date(), timestamp.strftime("%Y-%m")] for timestamp in
                                                    power_irradiance_site["Timestamp"]]
 
-
-        #print('Done')
+        # print('Done')
 
         # Create daily and monthly summaries --------------------------------------------------------------------------------
 
@@ -2054,15 +2075,15 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
                               [power_column, "Power Clipped", "Corrected Power Clipped"]] / 60
 
         daily_summary['% of loss'] = daily_summary["Power Clipped"] / (
-                daily_summary[power_column] + daily_summary["Power Clipped"]) * 100
+            daily_summary[power_column] + daily_summary["Power Clipped"]) * 100
         monthly_summary['% of loss'] = monthly_summary["Power Clipped"] / (
-                monthly_summary[power_column] + monthly_summary["Power Clipped"]) * 100
+            monthly_summary[power_column] + monthly_summary["Power Clipped"]) * 100
         # daily_summary['% of loss'] = ["{:.2%}".format(value) for value in daily_summary['% of loss']]
 
         daily_summary['% of loss corrected'] = daily_summary["Corrected Power Clipped"] / (
-                daily_summary[power_column] + daily_summary["Corrected Power Clipped"]) * 100
+            daily_summary[power_column] + daily_summary["Corrected Power Clipped"]) * 100
         monthly_summary['% of loss corrected'] = monthly_summary["Corrected Power Clipped"] / (
-                monthly_summary[power_column] + monthly_summary["Corrected Power Clipped"]) * 100
+            monthly_summary[power_column] + monthly_summary["Corrected Power Clipped"]) * 100
         # daily_summary['% of loss corrected'] = ["{:.2%}".format(value) for value in daily_summary['% of loss corrected']]
 
         # Save summaries
@@ -2073,13 +2094,11 @@ def clipping_classic(source_folder, geography, geopgraphy_folder, site_selection
         # Plot graphs
         graphs_by_gran = {}
 
-
         # </editor-fold>
 
         graphs_site = visuals.clipping_visuals(summaries, folder_img, site)
         graphs_by_site[site] = graphs_site
 
     return summaries_by_site, site_selection, dest_file, component_data, fmeca_data, graphs_by_site
-
 
 # </editor-fold>

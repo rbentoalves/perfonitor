@@ -3,7 +3,7 @@ import perfonitor.calculations as calculations
 import perfonitor.data_acquisition as data_acquisition
 import perfonitor.data_treatment as data_treatment
 import perfonitor.file_creation as file_creation
-import perfonitor.inputs as inputs
+# import perfonitor.inputs as inputs
 import windows as windows
 import re
 import perfonitor.visuals as visuals
@@ -55,7 +55,6 @@ def main(site_list, pre_selection, geography):
             all_irradiance_file, all_export_file, general_info_path = \
                 data_acquisition.get_files_to_add(0, 0, geography_folder, geography, no_update=True)
 
-
             """print("All Irradiance file: ", all_irradiance_file, "\n Irradiance files: ", irradiance_files,
                   "\n All Export file: ", all_export_file, "\n Export files: ", export_files,
                   "\n Report files: ", report_files,"\n General info path: ", general_info_path)
@@ -104,9 +103,9 @@ def main(site_list, pre_selection, geography):
                                                'Closed tracker incidents'], engine='openpyxl')
 
             df_active_eventtracker = data_treatment.match_df_to_event_tracker(df_all['Active Events'],
-                                                                                         component_data, fmeca_data)
+                                                                              component_data, fmeca_data)
             df_closed_eventtracker = data_treatment.match_df_to_event_tracker(df_all['Closed Events'],
-                                                                                         component_data, fmeca_data)
+                                                                              component_data, fmeca_data)
             df_active_eventtracker_trackers = data_treatment.match_df_to_event_tracker(
                 df_all['Active tracker incidents'],
                 tracker_data, fmeca_data, tracker=True)
@@ -142,10 +141,10 @@ def main(site_list, pre_selection, geography):
             # Calculate active hours and energy lost with correction for overlapping parents
             print("Creating final dataframes of the Event tracker...")
             final_df_to_add = calculations.active_hours_and_energy_lost_all_dfs(final_df_to_add,
-                                                                                           corrected_incidents_dict,
-                                                                                           df_all_irradiance,
-                                                                                           df_all_export, budget_pr,
-                                                                                           irradiance_threshold=20)
+                                                                                corrected_incidents_dict,
+                                                                                df_all_irradiance,
+                                                                                df_all_export, budget_pr,
+                                                                                irradiance_threshold=20)
 
             final_df_to_add['Closed Events']['Event End Time'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S')
                                                                   for timestamp
@@ -175,12 +174,12 @@ def main(site_list, pre_selection, geography):
             for period in period_list:
                 availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
                 all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                                     component_data,
-                                                                                                     df_all_irradiance,
-                                                                                                     df_all_export,
-                                                                                                     budget_pr,
-                                                                                                     irradiance_threshold=20,
-                                                                                                     timestamp=15)
+                                                                                          component_data,
+                                                                                          df_all_irradiance,
+                                                                                          df_all_export,
+                                                                                          budget_pr,
+                                                                                          irradiance_threshold=20,
+                                                                                          timestamp=15)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
@@ -198,12 +197,12 @@ def main(site_list, pre_selection, geography):
                 raw_availability_period = raw_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                                      raw_availability_period,
-                                                                      period, component_data,
-                                                                      df_all_irradiance, df_all_export, budget_pr,
-                                                                      budget_export,
-                                                                      budget_irradiance, irradiance_threshold=20,
-                                                                      timestamp=15)
+                                                           raw_availability_period,
+                                                           period, component_data,
+                                                           df_all_irradiance, df_all_export, budget_pr,
+                                                           budget_export,
+                                                           budget_irradiance, irradiance_threshold=20,
+                                                           timestamp=15)
 
                 performance_fleet_per_period[period] = data_period_df.sort_index()
             # </editor-fold>
@@ -223,8 +222,8 @@ def main(site_list, pre_selection, geography):
             print("Creating file...")
 
             file_creation.create_event_tracker_file_all(final_df_to_add, dest_file,
-                                                                   performance_fleet_per_period, site_capacities,
-                                                                   dict_fmeca_shapes)
+                                                        performance_fleet_per_period, site_capacities,
+                                                        dict_fmeca_shapes)
             # </editor-fold>
 
             if dest_file:
@@ -272,7 +271,7 @@ def main(site_list, pre_selection, geography):
                 print("Updating dump files of irradiance and export...")
                 df_all_irradiance = file_creation.update_dump_file(irradiance_files, all_irradiance_file)
                 df_all_export = file_creation.update_dump_file(export_files, all_export_file,
-                                                                          data_type="Energy Exported")
+                                                               data_type="Energy Exported")
 
 
             else:
@@ -313,8 +312,8 @@ def main(site_list, pre_selection, geography):
             # Get final dfs to add
             print("Creating pre-treatment final dataframes of the Event tracker...")
             final_df_to_add = data_acquisition.get_final_dataframes_to_add_to_EventTracker(dfs_to_add,
-                                                                                                      dfs_event_tracker,
-                                                                                                      fmeca_data)
+                                                                                           dfs_event_tracker,
+                                                                                           fmeca_data)
 
             # Create all component incidents df
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
@@ -336,10 +335,10 @@ def main(site_list, pre_selection, geography):
             # Calculate active hours and energy lost with correction for overlapping parents
             print("Creating final dataframes of the Event tracker...")
             final_df_to_add = calculations.active_hours_and_energy_lost_all_dfs(final_df_to_add,
-                                                                                   corrected_incidents_dict,
-                                                                                   df_all_irradiance, df_all_export,
-                                                                                   budget_pr,
-                                                                                   irradiance_threshold=20)
+                                                                                corrected_incidents_dict,
+                                                                                df_all_irradiance, df_all_export,
+                                                                                budget_pr,
+                                                                                irradiance_threshold=20)
 
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
 
@@ -361,12 +360,12 @@ def main(site_list, pre_selection, geography):
             for period in period_list:
                 availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
                 all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                                     component_data,
-                                                                                                     df_all_irradiance,
-                                                                                                     df_all_export,
-                                                                                                     budget_pr,
-                                                                                                     irradiance_threshold=20,
-                                                                                                     timestamp=15)
+                                                                                          component_data,
+                                                                                          df_all_irradiance,
+                                                                                          df_all_export,
+                                                                                          budget_pr,
+                                                                                          irradiance_threshold=20,
+                                                                                          timestamp=15)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
@@ -384,12 +383,12 @@ def main(site_list, pre_selection, geography):
                 raw_availability_period = raw_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                                      raw_availability_period,
-                                                                      period, component_data,
-                                                                      df_all_irradiance, df_all_export, budget_pr,
-                                                                      budget_export,
-                                                                      budget_irradiance, irradiance_threshold=20,
-                                                                      timestamp=15)
+                                                           raw_availability_period,
+                                                           period, component_data,
+                                                           df_all_irradiance, df_all_export, budget_pr,
+                                                           budget_export,
+                                                           budget_irradiance, irradiance_threshold=20,
+                                                           timestamp=15)
 
                 performance_fleet_per_period[period] = data_period_df.sort_index()
             # </editor-fold>
@@ -409,8 +408,8 @@ def main(site_list, pre_selection, geography):
             print("Creating file...")
 
             file_creation.create_event_tracker_file_all(final_df_to_add, dest_file,
-                                                                   performance_fleet_per_period, site_capacities,
-                                                                   dict_fmeca_shapes)
+                                                        performance_fleet_per_period, site_capacities,
+                                                        dict_fmeca_shapes)
             # </editor-fold>
 
             if dest_file:
@@ -515,7 +514,7 @@ def main(site_list, pre_selection, geography):
 
             # Correct active hours and energy loss to account for overlapping incidents
             print("Correcting overlapping events...")
-            corrected_incidents_dict = data_treatment.correct_incidents_irradiance_for_overlapping_parents\
+            corrected_incidents_dict = data_treatment.correct_incidents_irradiance_for_overlapping_parents \
                 (incidents, df_all_irradiance, df_all_export, component_data, recalculate_value)
 
             # Calculate active hours and energy lost with correction for overlapping parents
@@ -543,12 +542,12 @@ def main(site_list, pre_selection, geography):
             for period in period_list:
                 availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
                 all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                                     component_data,
-                                                                                                     df_all_irradiance,
-                                                                                                     df_all_export,
-                                                                                                     budget_pr,
-                                                                                                     irradiance_threshold=20,
-                                                                                                     timestamp=15)
+                                                                                          component_data,
+                                                                                          df_all_irradiance,
+                                                                                          df_all_export,
+                                                                                          budget_pr,
+                                                                                          irradiance_threshold=20,
+                                                                                          timestamp=15)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
@@ -566,12 +565,12 @@ def main(site_list, pre_selection, geography):
                 raw_availability_period = raw_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                                      raw_availability_period,
-                                                                      period, component_data,
-                                                                      df_all_irradiance, df_all_export, budget_pr,
-                                                                      budget_export,
-                                                                      budget_irradiance, irradiance_threshold=20,
-                                                                      timestamp=15)
+                                                           raw_availability_period,
+                                                           period, component_data,
+                                                           df_all_irradiance, df_all_export, budget_pr,
+                                                           budget_export,
+                                                           budget_irradiance, irradiance_threshold=20,
+                                                           timestamp=15)
 
                 performance_fleet_per_period[period] = data_period_df.sort_index()
             # </editor-fold>
@@ -591,8 +590,8 @@ def main(site_list, pre_selection, geography):
             print("Creating file...")
 
             file_creation.create_event_tracker_file_all(final_df_to_add, dest_file,
-                                                                   performance_fleet_per_period, site_capacities,
-                                                                   dict_fmeca_shapes)
+                                                        performance_fleet_per_period, site_capacities,
+                                                        dict_fmeca_shapes)
             # </editor-fold>
 
             if dest_file:
@@ -611,7 +610,7 @@ def main(site_list, pre_selection, geography):
             # <editor-fold desc="Get inputs, files necessary to analysis">
             # Get input of critical information for update, dates and file locations
             source_folder, geography, geography_folder, recalculate_value, period_list, level, irradiance_threshold, \
-            site_selection = windows.underperformance_report(site_list, pre_selection, geography)
+            site_selection, grouping_type = windows.underperformance_report(site_list, pre_selection, geography)
 
             # print(source_folder, "\n" , geography, "\n" , geography_folder, "\n" ,recalculate_value,"\n" , period_list)
 
@@ -642,6 +641,10 @@ def main(site_list, pre_selection, geography):
             df_all_export['Timestamp'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp
                                           in df_all_export['Timestamp']]
 
+            #review this part to avoid blank string types messing with calcs
+            """for column in df_all_export.columns:
+                df_all_export[column] = df_all_export[column].astype(float)"""
+
             df_all_irradiance['Timestamp'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for
                                               timestamp in df_all_irradiance['Timestamp']]
             # </editor-fold>
@@ -659,6 +662,10 @@ def main(site_list, pre_selection, geography):
             print("Reading general info files and creating dataframes...")
             component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, \
             budget_pr, budget_export, all_site_info = data_acquisition.get_general_info_dataframes(general_info_path)
+
+
+
+
             # </editor-fold>
 
             # <editor-fold desc="Get incidents dataframes from Event Tracker">
@@ -739,12 +746,13 @@ def main(site_list, pre_selection, geography):
             for period in period_list:
                 availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
                 all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                                     component_data,
-                                                                                                     df_all_irradiance,
-                                                                                                     df_all_export,
-                                                                                                     budget_pr,
-                                                                                                     irradiance_threshold=20,
-                                                                                                     timestamp=15)
+                                                                                          component_data,
+                                                                                          df_all_irradiance,
+                                                                                          df_all_export,
+                                                                                          budget_pr,
+                                                                                          irradiance_threshold=20,
+                                                                                          timestamp=15,
+                                                                                          site_list=site_selection)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
@@ -762,13 +770,13 @@ def main(site_list, pre_selection, geography):
                 raw_availability_period = raw_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                                      raw_availability_period,
-                                                                      period, component_data,
-                                                                      df_all_irradiance, df_all_export, budget_pr,
-                                                                      budget_export,
-                                                                      budget_irradiance,
-                                                                      irradiance_threshold=irradiance_threshold,
-                                                                      timestamp=15)
+                                                           raw_availability_period,
+                                                           period, component_data,
+                                                           df_all_irradiance, df_all_export, budget_pr,
+                                                           budget_export,
+                                                           budget_irradiance,
+                                                           irradiance_threshold=irradiance_threshold,
+                                                           timestamp=15, site_list=site_selection)
 
                 performance_fleet_per_period[period] = data_period_df.sort_index()
             # </editor-fold>
@@ -786,20 +794,85 @@ def main(site_list, pre_selection, geography):
 
             # <editor-fold desc="Create file">
             # File Creation - step 3 actually create file
-            print("Creating file...")
+            print("Creating files...")
+            underperformance_report_folder = geography_folder + '/Event Tracker/Underperformance Reports/'
+            groups_of_files = {}
+            data_dict = {}
+            perf_dict = {}
+            performance_fleet_period = performance_fleet_per_period[period]
 
-            underperformance_dest_file = geography_folder + \
-                                         '/Event Tracker/Underperformance Reports/Underperformance Report ' \
-                                         + geography + "_" + date_range + "_" + level + '_irr' + str(
-                irradiance_threshold) + '.xlsx'
+            if grouping_type == "Site":
+                site_codes = all_site_info[all_site_info.index.isin(site_list)]["Site code"].to_list()
+                up_dest_file_prefix = '/UP Report ' + geography + "_" + date_range + "_" + level + '_irr' + str(
+                    irradiance_threshold)
 
-            file_creation.create_underperformance_report(underperformance_dest_file,
-                                                                    incidents_corrected_period,
-                                                                    performance_fleet_per_period)
+                for site_code in site_codes:
+                    site = all_site_info.loc[all_site_info["Site code"] == site_code].index[0]
+                    groups_of_files[site] = underperformance_report_folder + '/' + site + up_dest_file_prefix \
+                                                + str(site_code) + ".xlsx"
+                    data_dict[site] = incidents_corrected_period.loc[incidents_corrected_period["Site Name"] == site]
+
+                    perf_dict[site] = performance_fleet_period.loc[performance_fleet_period.index.isin([site])]
+
+            elif grouping_type == "O&M":
+                omproviders = list(set(all_site_info[all_site_info.index.isin(site_list)]["O&M Provider"].to_list()))
+                up_dest_file_prefix = '/UP Report ' + geography + "_" + date_range + "_" + level + '_irr' + \
+                                      str(irradiance_threshold)
+
+                for provider in omproviders:
+                    sites_of_provider = all_site_info.loc[(all_site_info.index.isin(site_list)) & (
+                        all_site_info["O&M Provider"] == provider)].index.to_list()
+
+                    groups_of_files[provider] = underperformance_report_folder + '/' + provider + up_dest_file_prefix \
+                                                + str(provider) + ".xlsx"
+
+                    data_dict[provider] = incidents_corrected_period.loc[
+                        incidents_corrected_period["Site Name"].isin(sites_of_provider)]
+
+                    perf_dict[provider] = performance_fleet_period.loc[performance_fleet_period.index.isin(sites_of_provider)]
+
+            elif grouping_type == "Portfolio":
+                portfolios = list(set(all_site_info[all_site_info.index.isin(site_list)]["Portfolio"].to_list()))
+                up_dest_file_prefix = '/UP Report ' + geography + "_" + date_range + "_" + level + '_irr' + \
+                                      str(irradiance_threshold)
+
+                for portfolio in portfolios:
+                    sites_of_portfolio = all_site_info.loc[(all_site_info.index.isin(site_list)) & (
+                        all_site_info["Portfolio"] == portfolio)].index.to_list()
+
+                    groups_of_files[portfolio] = underperformance_report_folder + '/' + portfolio + up_dest_file_prefix \
+                                                + str(portfolio) + ".xlsx"
+
+                    data_dict[portfolio] = incidents_corrected_period.loc[
+                        incidents_corrected_period["Site Name"].isin(sites_of_portfolio)]
+
+                    perf_dict[portfolio] = performance_fleet_period.loc[
+                        performance_fleet_period.index.isin(sites_of_portfolio)]
+
+            else:
+                underperformance_dest_file = underperformance_report_folder + 'UP Report ' + geography \
+                                             + "_" + date_range + "_" + level + '_irr' + \
+                                             str(irradiance_threshold) + '.xlsx'
+
+                groups_of_files["None"] = underperformance_dest_file
+                data_dict["None"] = incidents_corrected_period
+                perf_dict["None"] = performance_fleet_period
+
+            for key in groups_of_files.keys():
+                file_dir = os.path.dirname(groups_of_files[key])
+
+                if os.path.isdir(file_dir):
+                    file_creation.create_underperformance_report(groups_of_files[key],
+                                                                 data_dict[key], perf_dict[key], site_list)
+                else:
+                    os.makedirs(file_dir)
+                    file_creation.create_underperformance_report(groups_of_files[key],
+                                                                 data_dict[key], perf_dict[key], site_list)
 
             # </editor-fold>
 
-            if underperformance_dest_file:
+
+            if grouping_type == "None":
                 event, values = sg.Window('Choose an option', [[sg.Text('Process complete, open file?')],
                                                                [sg.Button('Yes'), sg.Button('Cancel')]]).read(
                     close=True)
@@ -807,13 +880,15 @@ def main(site_list, pre_selection, geography):
                 if event == 'Yes':
                     command = 'start "EXCEL.EXE" "' + str(underperformance_dest_file) + '"'
                     os.system(command)
+            else:
+                sg.popup("Creation of UP reports successful")
 
         if event == "Monday.com files":
             date_start, date_end, event_tracker_folder, geography = windows.mondaycom_file(geography)
 
-            date_list = date_list = pd.date_range(date_start, date_end, freq='d')
+            # date_list = pd.date_range(date_start, date_end, freq='d')
             first_timestamp = datetime.strptime(date_start + " 00:00:00", '%Y-%m-%d %H:%M:%S')
-            last_timestamp = datetime.strptime(date_end + " 23:59:59", '%Y-%m-%d %H:%M:%S')
+            # last_timestamp = datetime.strptime(date_end + " 23:59:59", '%Y-%m-%d %H:%M:%S')
             start_of_month_timestamp = datetime.strptime(
                 str(first_timestamp.year) + "-" + str(first_timestamp.month) + "-01" + " 00:00:00", '%Y-%m-%d %H:%M:%S')
 
@@ -843,12 +918,14 @@ def main(site_list, pre_selection, geography):
             df_active_eventtracker = df_all['Active Events']
 
             df_closed_eventtracker = df_all['Closed Events']
-            df_active_eventtracker_trackers = df_all['Active tracker incidents']
-            df_closed_eventtracker_trackers = df_all['Closed tracker incidents']
+            # df_active_eventtracker_trackers = df_all['Active tracker incidents']
+            # df_closed_eventtracker_trackers = df_all['Closed tracker incidents']
 
             new_active_events = df_active_eventtracker.loc[
                 df_active_eventtracker['Event Start Time'] >= first_timestamp]
+
             new_closed_events = df_closed_eventtracker.loc[df_closed_eventtracker['Event End Time'] >= first_timestamp]
+
             month_closed_events = df_closed_eventtracker.loc[
                 (df_closed_eventtracker['Event Start Time'] >= start_of_month_timestamp) | ~(
                     df_closed_eventtracker['Event End Time'] >= start_of_month_timestamp)]
