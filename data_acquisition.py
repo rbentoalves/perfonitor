@@ -743,6 +743,7 @@ def get_dataframes_to_add_to_EventTracker(report_files,event_tracker_file_path, 
 
     #Dataframes to add
     for report_path in report_files:
+        print("Reading report: " + report_path)
         try:
             df_active_to_add_report = pd.read_excel(report_path, sheet_name='Active incidents', engine='openpyxl')
             df_closed_to_add_report = pd.read_excel(report_path, sheet_name='Closed incidents', engine='openpyxl')

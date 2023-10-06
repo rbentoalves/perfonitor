@@ -131,23 +131,25 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
             event_start_time = row['Rounded Event Start Time']
             budget_pr_site = budget_pr.loc[site, :]
 
-            if type(event_start_time) == str:
+            """if type(event_start_time) == str:
                 row['Rounded Event Start Time'] = event_start_time = datetime.strptime(str(event_start_time),
                                                                                        '%Y-%m-%d %H:%M:%S')
 
             if type(real_event_start_time) == str:
                 row['Event Start Time'] = real_event_start_time = datetime.strptime(str(event_start_time),
-                                                                                    '%Y-%m-%d %H:%M:%S')
+                                                                                    '%Y-%m-%d %H:%M:%S')"""
 
             # event_start_time = row['Event Start Time']
             if incident_id not in corrected_incidents_dict.keys():
                 df_irradiance_site = df_all_irradiance.loc[:,
                                      df_all_irradiance.columns.str.contains(site + '|Timestamp')]
+
                 df_irradiance_event = df_irradiance_site.loc[df_irradiance_site['Timestamp'] >= event_start_time]
 
                 # Get percentages of first timestamp to account for rounding
                 index_event_start_time = \
                     df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_start_time].index.values[0]
+
                 percentage_of_timestamp_start = data_treatment.get_percentage_of_timestamp(real_event_start_time,
                                                                                            event_start_time)
 
@@ -201,24 +203,26 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
 
             else:
                 data_gaps_percentage = "{:.2%}".format(corrected_incidents_dict[incident_id]['Data Gaps Proportion'])
+
                 actual_column = corrected_incidents_dict[incident_id]['Irradiance Column']
-                df_irradiance_event_raw = corrected_incidents_dict[incident_id][
-                    'Irradiance Raw']
-                df_irradiance_event = corrected_incidents_dict[incident_id][
-                    'Corrected Irradiance Incident']
-                df_cleaned_irradiance_event = corrected_incidents_dict[incident_id][
-                    'Cleaned Corrected Irradiance Incident']
+
+                df_irradiance_event_raw = corrected_incidents_dict[incident_id]['Irradiance Raw']
+                df_irradiance_event = corrected_incidents_dict[incident_id]['Corrected Irradiance Incident']
+                df_cleaned_irradiance_event = corrected_incidents_dict[incident_id]['Cleaned Corrected Irradiance Incident']
 
                 print('Using Corrected Incident for: ', component, " on ", site, "with ", data_gaps_percentage,
                       " of data gaps")
 
-                df_irradiance_event_activeperiods = df_irradiance_event.loc[
-                    df_irradiance_event[actual_column] > 20]
+                df_irradiance_event_activeperiods = df_irradiance_event.loc[df_irradiance_event[actual_column] > 20]
+
                 df_cleaned_irradiance_event_activeperiods = df_cleaned_irradiance_event.loc[
                     df_cleaned_irradiance_event[actual_column] > 20]
 
+                #Calculate duration, active hours and energy lost
                 duration = df_irradiance_event_raw.shape[0] * granularity
+
                 active_hours = df_irradiance_event_activeperiods.shape[0] * granularity
+
                 energy_lost = (sum(
                     [row_el[actual_column] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
                      index_el, row_el in
@@ -279,9 +283,9 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     duration = ((real_event_end_time - real_event_start_time).days * 24) + (
                         (real_event_end_time - real_event_start_time).seconds / 3600)
 
-                    active_hours = duration - ((
-                                                   df_irradiance_event.shape[0] -
-                                                   df_irradiance_event_activeperiods.shape[0]) * granularity)
+                    active_hours = duration - ((df_irradiance_event.shape[0] -
+                                                df_irradiance_event_activeperiods.shape[0]) * granularity)
+
                     # print(real_event_end_time, " - ", real_event_start_time, " = ", duration)
                     # print(real_event_end_time, " - ", real_event_start_time, " = ", active_hours , " - Active Hours")
 
@@ -1005,7 +1009,6 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
                                           "{:.2%}".format(corrected_actual_expected_variance),
                                           "{:.2%}".format(data_gaps_proportion))
 
-
         else:
             print(site, " Exported energy data not found.")
             continue
@@ -1050,7 +1053,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
     # <editor-fold desc="Curtailment Calculation">
     power_dfs_files = {}
     curtailment_events_by_site = {}
-    curtailment_events_by_site_to_ET = {}
+    curtailment_events_by_site_to_et = {}
     monthly_curtailment_by_site = {}
 
     for site in site_list:
@@ -1240,12 +1243,13 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
 
 def clipping_classic(source_folder, geography, geography_folder, site_selection, period,
                      irradiance_threshold: int = 20):
+
     df_irradiance, df_power, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
     budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, folder_img = \
-        data_acquisition.read_clipping_dataframes(source_folder, geography, geography_folder, site_selection, period,
-                                                  irradiance_threshold)
+        data_acquisition.read_clipping_dataframes(source_folder, geography, geography_folder, site_selection,
+                                                  period, irradiance_threshold)
 
-    # <editor-fold desc="Clipping Calculation">
+    #<editor-fold desc="Clipping Calculation">
     summaries_by_site = {}
     graphs_by_site = {}
 
