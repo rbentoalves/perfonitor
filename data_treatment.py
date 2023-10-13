@@ -1261,6 +1261,7 @@ def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = Fal
                     print(df.loc[df['Related Component'] == does_not_exist[1]])
                     """print(tuple_list_toadd)
                     print(tuple_list_componentdata)"""
+                    sg.popup("These components do not exist in the general info file: " + str(does_not_exist))
                     sys.exit("These components do not exist in the general info file")
 
         # Add rest of the columns
