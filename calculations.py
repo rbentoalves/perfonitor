@@ -1035,6 +1035,7 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
 def curtailment_classic(source_folder, geography, geography_folder, site_selection, period,
                         irradiance_threshold: int = 20):
+
     df_irradiance, df_power, active_power_setpoint_df, component_data, tracker_data, fmeca_data, site_capacities, \
     fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file = \
         data_acquisition.read_curtailment_dataframes(source_folder, geography, geography_folder, site_selection,
@@ -1231,7 +1232,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
                 ["Expected Energy Loss (kWh)", "Corrected Expected Energy Loss (kWh)"]]
 
             # print(curtailment_inc_df)
-            curtailment_inc_df["Energy Lost (kWh)"] = curtailment_inc_df["Corrected Expected Energy Loss (kWh)"]
+            curtailment_inc_df["Energy Lost (MWh)"] = curtailment_inc_df["Corrected Expected Energy Loss (kWh)"]/1000
             curtailment_events_by_site[site] = curtailment_inc_df
             monthly_curtailment_by_site[site] = df_month
     # </editor-fold>
