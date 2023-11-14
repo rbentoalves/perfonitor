@@ -210,11 +210,11 @@ def main(site_list, pre_selection, geography):
 
             # <editor-fold desc="Create Graphs and other visuals">
             # File Creation - step 2 create graphs & visuals
-            print("Creating graphs and visual aids")
-            graphs = {}
-            for period in period_list:
-                period_graph = visuals.availability_visuals(availability_fleet_per_period, period, folder_img)
-                graphs[period] = period_graph
+            #print("Creating graphs and visual aids")
+            #graphs = {}
+            #for period in period_list:
+            #    period_graph = visuals.availability_visuals(availability_fleet_per_period, period, folder_img)
+            #    graphs[period] = period_graph
             # </editor-fold>
 
             # <editor-fold desc="Create file">
@@ -396,11 +396,11 @@ def main(site_list, pre_selection, geography):
 
             # <editor-fold desc="Create Graphs & Visuals">
             # File Creation - step 2 create graphs & visuals
-            print("Creating graphs and visual aids")
-            graphs = {}
-            for period in period_list:
-                period_graph = visuals.availability_visuals(availability_fleet_per_period, period, folder_img)
-                graphs[period] = period_graph
+            #print("Creating graphs and visual aids")
+            #graphs = {}
+            #for period in period_list:
+                #    period_graph = visuals.availability_visuals(availability_fleet_per_period, period, folder_img)
+                #graphs[period] = period_graph
             # </editor-fold>
 
             # <editor-fold desc="Create file">
@@ -578,11 +578,11 @@ def main(site_list, pre_selection, geography):
 
             # <editor-fold desc="Create Graphs and other visuals">
             # File Creation - step 2 create graphs & visuals
-            print("Creating graphs and visual aids")
-            graphs = {}
-            for period in period_list:
-                period_graph = visuals.availability_visuals(availability_fleet_per_period, period, folder_img)
-                graphs[period] = period_graph
+            #print("Creating graphs and visual aids")
+            #graphs = {}
+            #for period in period_list:
+                #    period_graph = visuals.availability_visuals(availability_fleet_per_period, period, folder_img)
+            #    graphs[period] = period_graph
             # </editor-fold>
 
             # <editor-fold desc="Create file">
@@ -947,7 +947,7 @@ def main(site_list, pre_selection, geography):
                 writer = pd.ExcelWriter(file, engine='xlsxwriter')
                 workbook = writer.book
                 dataframe.to_excel(writer, sheet_name='Events', index=False)
-                writer.save()
+                writer.close()
                 print('Done!')
 
     window.close()

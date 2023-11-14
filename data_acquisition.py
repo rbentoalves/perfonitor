@@ -757,22 +757,22 @@ def get_dataframes_to_add_to_EventTracker(report_files,event_tracker_file_path, 
                                                          engine='openpyxl')
 
         try:
-            df_active_reports = df_active_reports.append(df_active_to_add_report)
+            df_active_reports = pd.concat([df_active_reports, df_active_to_add_report], ignore_index=True)
         except NameError:
             df_active_reports = df_active_to_add_report
 
         try:
-            df_closed_reports = df_closed_reports.append(df_closed_to_add_report)
+            df_closed_reports = pd.concat([df_closed_reports, df_closed_to_add_report], ignore_index=True)
         except NameError:
             df_closed_reports = df_closed_to_add_report
 
         try:
-            df_active_reports_trackers = df_active_reports_trackers.append(df_active_to_add_trackers_report)
+            df_active_reports_trackers = pd.concat([df_active_reports_trackers, df_active_to_add_trackers_report], ignore_index=True)
         except NameError:
             df_active_reports_trackers = df_active_to_add_trackers_report
 
         try:
-            df_closed_reports_trackers = df_closed_reports_trackers.append(df_closed_to_add_trackers_report)
+            df_closed_reports_trackers = pd.concat([df_closed_reports_trackers, df_closed_to_add_trackers_report], ignore_index=True)
         except NameError:
             df_closed_reports_trackers = df_closed_to_add_trackers_report
 

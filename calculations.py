@@ -982,6 +982,10 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
             # Calculate PRs
             actual_pr = exported_energy / ((actual_irradiance_site.sum() / 4000) * site_capacity)
+            print(exported_energy)
+            print(actual_irradiance_site)
+            print(site_capacity)
+            print(actual_pr)
             possible_pr = (exported_energy + energy_lost) / ((actual_irradiance_site.sum() / 4000) * site_capacity)
 
             # Calculate Variances

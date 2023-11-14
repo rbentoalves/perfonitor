@@ -135,7 +135,7 @@ def update_dump_file(irradiance_files, all_irradiance_file, data_type: str = 'Ir
 
     df_all_irradiance_new.to_excel(writer_irr, sheet_name='All ' + str(data_type), index=False)
 
-    writer_irr.save()
+    writer_irr.close()
 
     return df_all_irradiance_new
 
@@ -752,7 +752,7 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
     ws_active = workbook.get_worksheet_by_name("Performance Overview")
     ws_active.activate()
 
-    writer.save()
+    writer.close()
     print('Done')
 
     return
@@ -1685,7 +1685,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
     ws_fmeca_aux = workbook.get_worksheet_by_name('FMECA_AUX')
     ws_fmeca_aux.hide()
 
-    writer.save()
+    writer.close()
     print('Done')
 
     return
@@ -1897,7 +1897,7 @@ def create_underperformance_report(underperformance_dest_file, incidents_correct
 
     incidents_corrected_period.to_excel(writer_und, sheet_name='Underperformance Report', index=False)
 
-    writer_und.save()
+    writer_und.close()
 
     print('Done')
 
