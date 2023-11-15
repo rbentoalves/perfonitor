@@ -21,8 +21,17 @@ def add_incidents_to_excel(dest_file, site_list, df_list_active,
                            df_list_closed, df_info_sunlight, final_irradiance_data):
     """USAGE: add_incidents_to_excel(destiny_file,site_list,df_list_active,df_list_closed)"""
 
-    append_df_to_excel(dest_file, df_info_sunlight, sheet_name='Info', startrow=0)
-    append_df_to_excel(dest_file, final_irradiance_data, sheet_name='Irradiance', startrow=0)
+    writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    #workbook = writer.book
+
+    # <editor-fold desc="Info' sheets">
+
+    df_info_sunlight.to_excel(writer, sheet_name='Info', index=False)
+    final_irradiance_data.to_excel(writer, sheet_name='Irradiance', index=False)
+
+    # </editor-fold>
+
+    # <editor-fold desc="Incidents' sheets">
 
     for site in site_list:
         if "LSBP - " in site or "LSBP – " in site:
@@ -43,11 +52,25 @@ def add_incidents_to_excel(dest_file, site_list, df_list_active,
         df_active['Status of incident'] = 'Active'
         df_active['Action required'] = ''
 
-        append_df_to_excel(dest_file, df_closed, sheet_name=closed_sheet_name)
+        df_closed.to_excel(writer, sheet_name=closed_sheet_name, index=False)
+        for column in df_closed:
+            column_length = max(df_closed[column].astype(str).map(len).max(), len(column))
+            col_idx = df_closed.columns.get_loc(column)
+            writer.sheets[closed_sheet_name].set_column(col_idx, col_idx, column_length)
+
+        print('Closed events of ' + site + ' added')
+
+        df_active.to_excel(writer, sheet_name=active_sheet_name, index=False)
+        for column in df_active:
+            column_length = max(df_active[column].astype(str).map(len).max(), len(column))
+            col_idx = df_active.columns.get_loc(column)
+            writer.sheets[active_sheet_name].set_column(col_idx, col_idx, column_length)
 
         print('Active events of ' + site + ' added')
-        append_df_to_excel(dest_file, df_active, sheet_name=active_sheet_name)
-        print('Closed events of ' + site + ' added')
+
+    # </editor-fold>
+
+    writer.close()
 
     return
 
@@ -55,17 +78,39 @@ def add_incidents_to_excel(dest_file, site_list, df_list_active,
 def add_tracker_incidents_to_excel(dest_tracker_file, df_tracker_active, df_tracker_closed, df_tracker_info):
     """USAGE: add_tracker_incidents_to_excel(dest_file, df_tracker_active, df_tracker_closed, df_tracker_info)"""
 
-    append_df_to_excel(dest_tracker_file, df_tracker_info, sheet_name='Trackers info', startrow=0)
+    writer = pd.ExcelWriter(dest_tracker_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    #workbook = writer.book
+
+    # <editor-fold desc="Info' sheets">
+
+    df_tracker_info.to_excel(writer, sheet_name='Trackers info', index=False)
     print('Tracker Info added')
+
+    # </editor-fold>
+
+    # <editor-fold desc="Incidents' sheets">
 
     df_tracker_closed['Status of incident'] = 'Closed'
     df_tracker_active['Status of incident'] = 'Active'
     df_tracker_active['Action required'] = ''
 
-    append_df_to_excel(dest_tracker_file, df_tracker_active, sheet_name='Active tracker incidents')
+    df_tracker_active.to_excel(writer, sheet_name='Active tracker incidents', index=False)
+    for column in df_tracker_active:
+        column_length = max(df_tracker_active[column].astype(str).map(len).max(), len(column))
+        col_idx = df_tracker_active.columns.get_loc(column)
+        writer.sheets['Active tracker incidents'].set_column(col_idx, col_idx, column_length)
     print('Active tracker incidents added')
-    append_df_to_excel(dest_tracker_file, df_tracker_closed, sheet_name='Closed tracker incidents')
+
+    df_tracker_closed.to_excel(writer, sheet_name='Closed tracker incidents', index=False)
+    for column in df_tracker_closed:
+        column_length = max(df_tracker_closed[column].astype(str).map(len).max(), len(column))
+        col_idx = df_tracker_closed.columns.get_loc(column)
+        writer.sheets['Closed tracker incidents'].set_column(col_idx, col_idx, column_length)
     print('Closed tracker incidents added')
+
+    # </editor-fold>
+
+    writer.close()
 
     return
 
@@ -118,7 +163,7 @@ def update_dump_file(irradiance_files, all_irradiance_file, data_type: str = 'Ir
     df_all_irradiance = pd.read_excel(all_irradiance_file, engine='openpyxl')
 
     df_irradiance_day_list = [pd.read_excel(file, engine='openpyxl') for file in irradiance_files]
-    df_all_irradiance_list = df_irradiance_day_list.append(df_all_irradiance)
+    df_irradiance_day_list.insert(0, df_all_irradiance)
 
     df_all_irradiance_new = pd.concat(df_irradiance_day_list)
     df_all_irradiance_new['Timestamp'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
@@ -461,12 +506,12 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
 
     print(pr_data_period_df.iloc[:4, :2])
 
-    create_dmr_file(final_df_to_add, dest_file, pr_data_period_df, site_capacities)
+    create_dmr_file(final_df_to_add, dest_file, pr_data_period_df, site_capacities, site_list)
 
     return dest_file
 
 
-def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_capacities):
+def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_capacities, site_list):
     writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
     workbook = writer.book
 
@@ -578,6 +623,7 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
         ws_sheet = workbook.add_worksheet(sheet)
 
     df_performance = performance_fleet_period.T
+    df_performance = df_performance[site_list]
 
     # print(df_performance)
 

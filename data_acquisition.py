@@ -221,7 +221,7 @@ def read_time_of_operation_old(irradiance_df, Report_template_path, withmean: bo
             # df_timeofops = df_timeofops.set_index('Site')
 
             try:
-                df_all = df_all.append(df_timeofops)
+                df_all = pd.concat(df_all, df_timeofops, ignore_index=True)
             except (UnboundLocalError, NameError):
                 df_all = df_timeofops
 
@@ -356,7 +356,7 @@ def read_time_of_operation_new(irradiance_df, site_list, df_general_info, withme
                 # df_timeofops = df_timeofops.set_index('Site')
 
                 try:
-                    df_all = df_all.append(df_timeofops)
+                    df_all = pd.concat([df_all, df_timeofops], ignore_index=True)
                 except (UnboundLocalError, NameError):
                     df_all = df_timeofops
 
