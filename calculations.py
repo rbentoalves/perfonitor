@@ -954,7 +954,7 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
         if len(export_column) > 0:
             export_data = df_export_period[[export_column]]
-            exported_energy = float(export_data.sum())
+            exported_energy = float(export_data.sum().iloc[0])
 
             # Get relevant irradiance data and calculate expected energy
             irradiance_site = df_irradiance_period.loc[:, df_irradiance_period.columns.str.contains(site)]

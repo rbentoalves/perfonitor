@@ -504,7 +504,7 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
     pr_data_period_df = calculations.day_end_availability(pr_data_period_df, final_df_to_add, component_data,
                                                           tracker_data, all_site_info)
 
-    print(pr_data_period_df.iloc[:4, :2])
+    #print(pr_data_period_df.iloc[:4, :2])
 
     create_dmr_file(final_df_to_add, dest_file, pr_data_period_df, site_capacities, site_list)
 
@@ -611,7 +611,7 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
         ['Site Name', 'ID', 'Related Component', 'Event Start Time', 'Energy Lost (MWh)', 'Capacity Related Component']]
 
     overview_events['% of site affected'] = ["{:.2%}".format(row['Capacity Related Component'] /
-                                                             float(site_capacities.loc[row['Site Name']]))
+                                                             float(site_capacities.loc[row['Site Name']].iloc[0]))
                                              for index, row in overview_events.iterrows()]
     # overview_events
 
