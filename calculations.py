@@ -232,6 +232,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                 df_cleaned_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000 """
 
             if active_hours < 0:
+                print("Active hours below 0 (how??): " + str(incident_id))
                 active_hours = duration
 
             df.loc[index, 'Duration (h)'] = duration
@@ -283,8 +284,14 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     duration = ((real_event_end_time - real_event_start_time).days * 24) + (
                         (real_event_end_time - real_event_start_time).seconds / 3600)
 
-                    active_hours = duration - ((df_irradiance_event.shape[0] -
-                                                df_irradiance_event_activeperiods.shape[0]) * granularity)
+                    active_timestamps = df_irradiance_event_activeperiods.shape[0]
+
+                    if active_timestamps == 0:
+                        active_hours = 0
+                    else:
+                        active_hours = duration - (df_irradiance_event.shape[0] - active_timestamps) * granularity
+
+
 
                     # print(real_event_end_time, " - ", real_event_start_time, " = ", duration)
                     # print(real_event_end_time, " - ", real_event_start_time, " = ", active_hours , " - Active Hours")
@@ -318,8 +325,12 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     duration = ((real_event_end_time - real_event_start_time).days * 24) + (
                         (real_event_end_time - real_event_start_time).seconds / 3600)
 
-                    active_hours = duration - (
-                        df_irradiance_event.shape[0] - df_irradiance_event_activeperiods.shape[0]) * granularity
+                    active_timestamps = df_irradiance_event_activeperiods.shape[0]
+
+                    if active_timestamps == 0:
+                        active_hours = 0
+                    else:
+                        active_hours = duration - (df_irradiance_event.shape[0] - active_timestamps) * granularity
 
                     # print(real_event_end_time, " - ", real_event_start_time, " = ", duration)
                     # print(real_event_end_time, " - ", real_event_start_time, " = ", active_hours, " - Active Hours")
@@ -330,6 +341,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                          df_cleaned_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
 
                 if active_hours < 0:
+                    print("Active hours below 0: " + str(incident_id))
                     active_hours = duration
 
                 df.loc[index, 'Duration (h)'] = duration
@@ -404,8 +416,13 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     duration = ((real_event_end_time - real_event_start_time).days * 24) + \
                                ((real_event_end_time - real_event_start_time).seconds / 3600)
 
-                    active_hours = duration - (df_irradiance_event.shape[0] -
-                                               df_irradiance_event_activeperiods.shape[0]) * granularity
+                    active_timestamps = df_irradiance_event_activeperiods.shape[0]
+
+                    if active_timestamps == 0:
+                        active_hours = 0
+                    else:
+                        active_hours = duration - (df_irradiance_event.shape[0] - active_timestamps) * granularity
+
 
                     if site == component:
                         df_export_site = df_all_export.loc[:,
@@ -469,9 +486,12 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     duration = ((real_event_end_time - real_event_start_time).days * 24) \
                                + ((real_event_end_time - real_event_start_time).seconds / 3600)
 
-                    active_hours = duration - (
-                        df_irradiance_event.shape[0] - df_irradiance_event_activeperiods.shape[0]) \
-                                   * granularity
+                    active_timestamps = df_irradiance_event_activeperiods.shape[0]
+
+                    if active_timestamps == 0:
+                        active_hours = 0
+                    else:
+                        active_hours = duration - (df_irradiance_event.shape[0] - active_timestamps) * granularity
 
                     energy_lost = (sum(
                         [row_el[actual_column] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
@@ -479,6 +499,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                          df_cleaned_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
 
                 if active_hours < 0:
+                    print("Active hours below 0: " + str(incident_id))
                     active_hours = duration
 
                 df.loc[index, 'Duration (h)'] = duration
