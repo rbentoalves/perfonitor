@@ -348,7 +348,9 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                 df.loc[index, 'Active Hours (h)'] = active_hours
                 df.loc[index, 'Energy Lost (MWh)'] = energy_lost / 1000
         else:
+            print(df.shape)
             df_to_update = df.loc[df['Energy Lost (MWh)'].isnull()]
+            print(df_to_update.shape)
             df_to_update = data_treatment.rounddatesclosed_15m("All", df_to_update)
 
             for index, row in df_to_update.iterrows():
@@ -1253,8 +1255,10 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
             curtailment_inc_df["Month"] = [timestamp.strftime("%Y-%m")
                                            for timestamp in curtailment_inc_df["Event Start Time"]]
 
-            df_month = curtailment_inc_df.groupby(['Month']).sum()[
-                ["Expected Energy Loss (kWh)", "Corrected Expected Energy Loss (kWh)"]]
+
+
+            df_month = curtailment_inc_df[['Month', "Expected Energy Loss (kWh)",
+                                           "Corrected Expected Energy Loss (kWh)"]].groupby(['Month']).sum() #[["Expected Energy Loss (kWh)", "Corrected Expected Energy Loss (kWh)"]]
 
             # print(curtailment_inc_df)
             curtailment_inc_df["Energy Lost (MWh)"] = curtailment_inc_df["Corrected Expected Energy Loss (kWh)"]/1000
