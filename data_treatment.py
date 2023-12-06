@@ -28,9 +28,11 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
         pass
     else:
         n_inc_1 = incidents.shape[0]
-        incidents_to_correct = incidents.loc[(incidents['Active Hours (h)'].isna()) | (incidents['Event End Time'].isna())]
+        incidents_to_correct = incidents.loc[(incidents['Event End Time'].isna()) |
+                                             (incidents['Energy Lost (MWh)'].isna())]
+
         n_inc_2 = incidents_to_correct.shape[0]
-        print('No recalculation, analysing ', n_inc_2, ' from a total of ', n_inc_1, ' incidents.')
+        print('No recalculation, analysing overlappers on ', n_inc_2, ' from a total of ', n_inc_1, ' incidents.')
 
     for index, row in incidents_to_correct.iterrows():
 
@@ -120,6 +122,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                             del timestamps_to_remove_eloss
                         except NameError:
                             pass
+
                         if closed_event is False:
                             print('Relevant overlapping Incidents for an active event')
                         else:
@@ -163,9 +166,9 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                                                        end=rpi_end_time, freq='15min'))
 
                             if row_rpi["Failure Mode"] == "Curtailment":
-                                print("Correcting Curtailment")
-                                print(type(rpi_actual_end_time))
-                                print(type(rpi_actual_start_time))
+                                print("Correcting for curtailment")
+                                #print(type(rpi_actual_end_time))
+                                #print(type(rpi_actual_start_time))
 
                                 timestamp_range = export_incident.loc[
                                     (export_incident["Timestamp"] <= rpi_actual_end_time) &
@@ -182,12 +185,12 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                     print("No correction needed")
 
                             else:
-                                print("Correcting Non-Curtailment")
+                                print("Correcting for non-curtailment")
                                 timestamp_range = timestamp_range_eloss = list(pd.date_range(start=rpi_start_time,
                                                                                              end=rpi_end_time,
                                                                                              freq='15min'))
 
-                                print("Between: " + str(timestamp_range[0]) + " and " + str(timestamp_range[-1]))
+                                #print("Between: " + str(timestamp_range[0]) + " and " + str(timestamp_range[-1]))
 
                             try:
                                 timestamps_to_remove += timestamp_range
