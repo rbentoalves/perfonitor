@@ -29,7 +29,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
     else:
         n_inc_1 = incidents.shape[0]
         incidents_to_correct = incidents.loc[(incidents['Active Hours (h)'].isna()) | (incidents['Event End Time'].isna())]
-        n_inc_2 = incidents.shape[0]
+        n_inc_2 = incidents_to_correct.shape[0]
         print('No recalculation, analysing ', n_inc_2, ' from a total of ', n_inc_1, ' incidents.')
 
     for index, row in incidents_to_correct.iterrows():

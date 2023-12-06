@@ -8,8 +8,10 @@ import monitools.windows as windows
 import re
 import perfonitor.visuals as visuals
 from datetime import datetime
+import datetime as dt
 import PySimpleGUI as sg
 import pandas as pd
+import numpy as np
 
 
 def main(site_list, pre_selection, geography):
@@ -247,9 +249,6 @@ def main(site_list, pre_selection, geography):
             if event_tracker_path == "None":
                 continue
 
-            """print("Start date: ", date_start, "\n End date: ", date_end, "\n ET: ", event_tracker_path,
-                  "\n DMR folder: ", dmr_folder)
-"""
             # Get file paths to add
             print("Looking for files to add...")
             report_files, irradiance_files, export_files, all_irradiance_file, all_export_file, general_info_path = \
@@ -259,10 +258,7 @@ def main(site_list, pre_selection, geography):
             dest_file = et_folder + '/Event Tracker ' + geography + '_Final.xlsx'
             folder_img = et_folder + '/images'
 
-            """print("All Irradiance file: ", all_irradiance_file, "\n Irradiance files: ", irradiance_files,
-                  "\n All Export file: ", all_export_file, "\n Export files: ", export_files,
-                  "\n Report files: ", report_files,"\n General info path: ", general_info_path)
-"""
+
             # </editor-fold>
 
             # <editor-fold desc="Update dump files - Irradiance & Export">
@@ -314,6 +310,43 @@ def main(site_list, pre_selection, geography):
             final_df_to_add = data_acquisition.get_final_dataframes_to_add_to_EventTracker(dfs_to_add,
                                                                                            dfs_event_tracker,
                                                                                            fmeca_data)
+            closed_events = final_df_to_add['Closed Events']
+
+
+            if recalculate_value == "Last month":
+                start_of_month = datetime.strptime(str(datetime.today().date() - dt.timedelta(days=31)) +
+                                                   " 00:00:00",'%Y-%m-%d %H:%M:%S').replace(day=1)
+                last_month_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_month) &
+                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+
+                for index, row in last_month_ce.iterrows():
+                    closed_events.loc[index, ["Duration (h)"]] = np.nan
+                    closed_events.loc[index, ["Active Hours (h)"]] = np.nan
+                    closed_events.loc[index, ["Energy Lost (MWh)"]] = np.nan
+
+                print("Cleaned data to recalculate for periods between: " + str(start_of_month) + " and " + str(
+                    datetime.today().date()))
+
+                final_df_to_add['Closed Events'] = closed_events
+
+            elif recalculate_value == "Last year":
+                start_of_year = datetime.strptime(str(datetime.today().date()) + " 00:00:00",
+                                                  '%Y-%m-%d %H:%M:%S').replace(day=1, month=1)
+                last_year_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_year) &
+                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+
+                for index, row in last_year_ce.iterrows():
+                    closed_events.loc[index, ["Duration (h)"]] = np.nan
+                    closed_events.loc[index, ["Active hours (h)"]] = np.nan
+                    closed_events.loc[index, ["Energy Lost (MWh)"]] = np.nan
+
+                print("Cleaned data to recalculate for periods between: " + str(start_of_year) + " and " + str(
+                    datetime.today().date()))
+
+                final_df_to_add['Closed Events'] = closed_events
+
+
+
 
             # Create all component incidents df
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
@@ -326,8 +359,7 @@ def main(site_list, pre_selection, geography):
                 incidents,
                 df_all_irradiance,
                 df_all_export,
-                component_data,
-                recalculate_value)
+                component_data)
 
             # Create FMECA aux tables - can be moved to file creation
             dict_fmeca_shapes = data_treatment.create_fmeca_dataframes_for_validation(fmeca_data)
@@ -509,13 +541,49 @@ def main(site_list, pre_selection, geography):
             # Create FMECA aux tables - can be moved to file creation
             dict_fmeca_shapes = data_treatment.create_fmeca_dataframes_for_validation(fmeca_data)
 
+            # Recalculation prep
+
+            closed_events = final_df_to_add['Closed Events']
+
+            if recalculate_value == "Last month":
+                start_of_month = datetime.strptime(str(datetime.today().date() - dt.timedelta(days=31)) +
+                                                   " 00:00:00",'%Y-%m-%d %H:%M:%S').replace(day=1)
+                last_month_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_month) &
+                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+
+                for index, row in last_month_ce.iterrows():
+                    closed_events.loc[index, ["Duration (h)"]] = np.nan
+                    closed_events.loc[index, ["Active Hours (h)"]] = np.nan
+                    closed_events.loc[index, ["Energy Lost (MWh)"]] = np.nan
+
+                print("Cleaned data to recalculate for periods between: " + str(start_of_month) + " and " + str(
+                    datetime.today().date()))
+
+                final_df_to_add['Closed Events'] = closed_events
+
+            elif recalculate_value == "Last year":
+                start_of_year = datetime.strptime(str(datetime.today().date()) + " 00:00:00",
+                                                  '%Y-%m-%d %H:%M:%S').replace(day=1, month=1)
+                last_year_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_year) &
+                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+
+                for index, row in last_year_ce.iterrows():
+                    closed_events.loc[index, ["Duration (h)"]] = np.nan
+                    closed_events.loc[index, ["Active hours (h)"]] = np.nan
+                    closed_events.loc[index, ["Energy Lost (MWh)"]] = np.nan
+
+                print("Cleaned data to recalculate for periods between: " + str(start_of_year) + " and " + str(
+                    datetime.today().date()))
+
+                final_df_to_add['Closed Events'] = closed_events
+
             # Create all component incidents df
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
 
             # Correct active hours and energy loss to account for overlapping incidents
             print("Correcting overlapping events...")
             corrected_incidents_dict = data_treatment.correct_incidents_irradiance_for_overlapping_parents \
-                (incidents, df_all_irradiance, df_all_export, component_data, recalculate_value)
+                (incidents, df_all_irradiance, df_all_export, component_data)
 
             # Calculate active hours and energy lost with correction for overlapping parents
             print("Creating final dataframes of the Event tracker...")

@@ -121,6 +121,7 @@ def calculate_expected_energy(site, start_timestamp, end_timestamp, budget_expor
 def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budget_pr, corrected_incidents_dict,
                                      active_events: bool = False, recalculate: bool = False,
                                      granularity: float = 0.25):
+
     if active_events:
         for index, row in df.iterrows():
             site = row['Site Name']
@@ -377,6 +378,11 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     index_event_start_time = \
                         df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_start_time].index.values[0]
 
+                    print(event_end_time)
+                    print(real_event_end_time)
+                    print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time].index.values)
+                    #print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time])
+
                     index_event_end_time = \
                         df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time].index.values[0]
 
@@ -559,19 +565,20 @@ def active_hours_and_energy_lost_all_dfs(final_df_to_add, corrected_incidents_di
 # <editor-fold desc="Availability Calculation">
 
 def calculate_availability_period(site, incidents, component_data, budget_pr, df_all_irradiance, df_all_export,
-                                  irradiance_threshold, date_start_str, date_end_str, granularity: float = 0.25):
+                                  irradiance_threshold, date_start_str, date_end_str, granularity: float = 0.25,
+                                  recalculate_value: bool = False):
     print(site)
     period = date_start_str + " to " + date_end_str
     active_events = False
-    recalculate_value = True
+
     irradiance_incidents_corrected = {}
 
     # <editor-fold desc="Get relevant data">
 
     # Get site info --------------------------------------------------------------------------------------------
-    site_info = component_data.loc[component_data['Site'] == site]
+    #site_info = component_data.loc[component_data['Site'] == site]
+    #budget_pr_site = budget_pr.loc[site, :]
     site_capacity = float(component_data.loc[component_data['Component'] == site]['Nominal Power DC'].values)
-    budget_pr_site = budget_pr.loc[site, :]
 
     # Get site Incidents --------------------------------------------------------------------------------------------
     site_incidents = incidents.loc[incidents['Site Name'] == site]
@@ -611,8 +618,7 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
 
         # Get end time analysis
         date_end_avail_analysis = datetime.strptime(date_end_str, '%Y-%m-%d').date()
-        date_end_str_event = str(datetime.strptime(date_end_str, '%Y-%m-%d').date() + dt.timedelta(days=1))
-        timestamp_end_avail_analysis = datetime.strptime(date_end_str_event + " 00:00:00", '%Y-%m-%d %H:%M:%S')
+        timestamp_end_avail_analysis = datetime.strptime(str(date_end_avail_analysis) + " 23:45:00", '%Y-%m-%d %H:%M:%S')
 
         # Get days list under analysis
         days_list = pd.date_range(start=date_start_avail_analysis, end=date_end_avail_analysis).date
@@ -635,12 +641,8 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
     relevant_incidents = site_incidents.loc[~(site_incidents['Event Start Time'] > timestamp_end_avail_analysis) & ~(
         site_incidents['Event End Time'] < timestamp_start_avail_analysis)]
 
-    print(relevant_incidents[['ID', 'Event Start Time', 'Event End Time', 'Energy Lost (MWh)']])
+    #print(relevant_incidents[['ID', 'Event Start Time', 'Event End Time', 'Energy Lost (MWh)']])
 
-    # test
-    """## print(relevant_incidents)
-    ## print(relevant_incidents.loc[(relevant_incidents['Site Name'] == "LSBP - Bighorn") & (relevant_incidents['Related Component'] == "Inverter 65")])
-    ## print(relevant_incidents[['Related Component', 'Event Start Time','Event End Time', "Duration (h)","Active Hours (h)", 'Energy Lost (MWh)' ]])"""
     # </editor-fold>
 
     # <editor-fold desc="Get irradiance of period under analysis">
@@ -683,20 +685,24 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
     # Correct Timestamps of incidents to timeframe of analysis ---------------------------------------------------------
     for index, row in relevant_incidents.iterrows():
         try:
-            if math.isnan(row['Event End Time']):
+            if pd.isnull(row['Event End Time']):
+                print("Found active event: ", str(row["ID"]))
                 relevant_incidents.loc[index, 'Event End Time'] = timestamp_end_avail_analysis
+                relevant_incidents.loc[index, 'Energy Lost (MWh)'] = None
 
-            if row['Event Start Time'] < timestamp_start_avail_analysis:
-                relevant_incidents.loc[index, 'Event Start Time'] = timestamp_start_avail_analysis
+            elif row['Event End Time'] > timestamp_end_avail_analysis:
+                relevant_incidents.loc[index, 'Event End Time'] = timestamp_end_avail_analysis
+                relevant_incidents.loc[index, 'Energy Lost (MWh)'] = None
 
         except TypeError:
             if row['Event End Time'] > timestamp_end_avail_analysis:
                 relevant_incidents.loc[index, 'Event End Time'] = timestamp_end_avail_analysis
+                relevant_incidents.loc[index, 'Energy Lost (MWh)'] = None
 
+        finally:
             if row['Event Start Time'] < timestamp_start_avail_analysis:
-                ## print('LOOK HERE')
-                ## print(row[['Related Component', 'Event Start Time','Event End Time']])
                 relevant_incidents.loc[index, 'Event Start Time'] = timestamp_start_avail_analysis
+                relevant_incidents.loc[index, 'Energy Lost (MWh)'] = None
 
     ## print(relevant_incidents.loc[(relevant_incidents['Site Name'] == "LSBP - Bighorn") & (relevant_incidents['Related Component'] == "Inverter 65")])
 
@@ -717,8 +723,8 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
     all_corrected_incidents = activehours_energylost_incidents(relevant_incidents, irradiance_analysis,
                                                                export_analysis, budget_pr,
                                                                corrected_incidents_dict_period,
-                                                               active_events, recalculate_value,
-                                                               granularity)
+                                                               active_events, recalculate=False,
+                                                               granularity=granularity)
 
     # Get corrected relevant incidents to concat with unaltered ones
     corrected_relevant_incidents = all_corrected_incidents.loc[(all_corrected_incidents['Event Start Time'] ==
@@ -730,10 +736,11 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
 
     # Join corrected incidents and non-corrected incidents
 
-    if date_start_str == date_end_str:
+    """if date_start_str == date_end_str:
         corrected_relevant_incidents = all_corrected_incidents
     else:
-        corrected_relevant_incidents = pd.concat([incidents_unaltered, corrected_relevant_incidents])
+        """
+    corrected_relevant_incidents = pd.concat([incidents_unaltered, corrected_relevant_incidents])
 
     # corrected_relevant_incidents = final_relevant_incidents
     # Calculate period availability-------------------------------------------------------------------------------------
@@ -804,11 +811,13 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
 
 
 def availability_in_period(incidents, period, component_data, df_all_irradiance, df_all_export, budget_pr,
-                           irradiance_threshold: int = 20, timestamp: int = 15, date: str = "", site_list: list = []):
+                           irradiance_threshold: int = 20, timestamp: int = 15, date: str = "", site_list: list = [],
+                           recalculate_value: bool = False):
     granularity = timestamp / 60
-
+    last_timestamp = list(df_all_irradiance["Timestamp"])[-2]
+    print(last_timestamp)
     # Get dates from period info
-    date_start_str, date_end_str = inputs.choose_period_of_analysis(period, date=date)
+    date_start_str, date_end_str = inputs.choose_period_of_analysis(period, last_timestamp, date=date)
     date_range = date_start_str + " to " + date_end_str
     print(date_range)
 
@@ -838,7 +847,8 @@ def availability_in_period(incidents, period, component_data, df_all_irradiance,
         all_corrected_incidents_site = calculate_availability_period(site, incidents, component_data, budget_pr,
                                                                      df_all_irradiance, df_all_export,
                                                                      irradiance_threshold,
-                                                                     date_start_str, date_end_str, granularity)
+                                                                     date_start_str, date_end_str, granularity,
+                                                                     recalculate_value)
 
         availability_period_per_site[site] = availability_period
         raw_availability_period_per_site[site] = raw_availability_period
@@ -947,7 +957,8 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
     fleet_capacity = site_capacities['Nominal Power DC'].sum()
 
     # Get dates from period info
-    date_start_str, date_end_str = inputs.choose_period_of_analysis(period, date=date)
+    last_timestamp = list(df_all_irradiance["Timestamp"])[-2]
+    date_start_str, date_end_str = inputs.choose_period_of_analysis(period, last_timestamp, date=date)
 
     # Get start time analysis
     date_start_avail_analysis = datetime.strptime(date_start_str, '%Y-%m-%d').date()
@@ -1005,10 +1016,10 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
             # Calculate PRs
             actual_pr = exported_energy / ((actual_irradiance_site.sum() / 4000) * site_capacity)
-            print(exported_energy)
-            print(actual_irradiance_site)
-            print(site_capacity)
-            print(actual_pr)
+            # print(exported_energy)
+            # print(actual_irradiance_site)
+            # print(site_capacity)
+            # print(actual_pr)
             possible_pr = (exported_energy + energy_lost) / ((actual_irradiance_site.sum() / 4000) * site_capacity)
 
             # Calculate Variances
@@ -1137,6 +1148,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
             data_for_df = {"Site Name": [site] * len(setpoints),
                            "Related Component": [site] * len(setpoints),
                            "Capacity Related Component": [nominal_power] * len(setpoints),
+                           "Component Status": ["Not Producing"] * len(setpoints),
                            "Setpoint": setpoints,
                            "Event Start Time": start_timestamps,
                            "Event End Time": end_timestamps,
