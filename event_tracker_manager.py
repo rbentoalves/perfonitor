@@ -769,6 +769,11 @@ def main(site_list, pre_selection, geography):
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
             incidents = incidents[incidents["Site Name"].isin(site_selection)]
 
+            tracker_incidents = pd.concat([final_df_to_add['Active tracker incidents'],
+                                           final_df_to_add['Closed tracker incidents']])
+
+            tracker_incidents = tracker_incidents[tracker_incidents["Site Name"].isin(site_selection)]
+
             if level == "All":
                 pass
             elif level == 'Inverter only':
