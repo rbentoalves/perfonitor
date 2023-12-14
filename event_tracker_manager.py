@@ -155,9 +155,12 @@ def main(site_list, pre_selection, geography):
 
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
 
-            incidents['Event Start Time'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp
+            """incidents['Event Start Time'] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp
                                              in
-                                             incidents['Event Start Time']]
+                                             incidents['Event Start Time']]"""
+
+            tracker_incidents = pd.concat([final_df_to_add['Active tracker incidents'],
+                                           final_df_to_add['Closed tracker incidents']])
 
             # File Creation
 
@@ -170,21 +173,19 @@ def main(site_list, pre_selection, geography):
             # <editor-fold desc="Calculate availability per period">
             availability_fleet_per_period = {}
             raw_availability_fleet_per_period = {}
+            tracker_availability_fleet_per_period = {}
             active_hours_fleet_per_period = {}
             incidents_corrected_fleet_period_per_period = {}
 
             for period in period_list:
-                availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
-                all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                          component_data,
-                                                                                          df_all_irradiance,
-                                                                                          df_all_export,
-                                                                                          budget_pr,
-                                                                                          irradiance_threshold=20,
-                                                                                          timestamp=15)
+                availability_period_df, raw_availability_period_df, tracker_availability_period_df, activehours_period_df, \
+                incidents_corrected_period, all_corrected_incidents, date_range = calculations.availability_in_period(
+                    incidents, tracker_incidents, period, component_data, df_all_irradiance, df_all_export, budget_pr,
+                    irradiance_threshold=20, timestamp=15)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
+                tracker_availability_fleet_per_period[period] = tracker_availability_period_df
                 active_hours_fleet_per_period[period] = activehours_period_df
                 incidents_corrected_fleet_period_per_period[period] = incidents_corrected_period
             # </editor-fold>
@@ -197,9 +198,10 @@ def main(site_list, pre_selection, geography):
                 incidents_period = incidents_corrected_fleet_period_per_period[period]
                 availability_period = availability_fleet_per_period[period]
                 raw_availability_period = raw_availability_fleet_per_period[period]
+                tracker_availability_period = tracker_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                           raw_availability_period,
+                                                           raw_availability_period,tracker_availability_period,
                                                            period, component_data,
                                                            df_all_irradiance, df_all_export, budget_pr,
                                                            budget_export,
@@ -373,6 +375,8 @@ def main(site_list, pre_selection, geography):
                                                                                 irradiance_threshold=20)
 
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
+            tracker_incidents = pd.concat([final_df_to_add['Active tracker incidents'],
+                                           final_df_to_add['Closed tracker incidents']])
 
             """Update database --------------------------------------------------------------------------------------
             """
@@ -386,21 +390,19 @@ def main(site_list, pre_selection, geography):
             # <editor-fold desc="Calculate availability per period">
             availability_fleet_per_period = {}
             raw_availability_fleet_per_period = {}
+            tracker_availability_fleet_per_period = {}
             active_hours_fleet_per_period = {}
             incidents_corrected_fleet_period_per_period = {}
 
             for period in period_list:
-                availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
-                all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                          component_data,
-                                                                                          df_all_irradiance,
-                                                                                          df_all_export,
-                                                                                          budget_pr,
-                                                                                          irradiance_threshold=20,
-                                                                                          timestamp=15)
+                availability_period_df, raw_availability_period_df,tracker_availability_period_df,activehours_period_df,\
+                incidents_corrected_period, all_corrected_incidents, date_range = calculations.availability_in_period(
+                    incidents, tracker_incidents,period,component_data,df_all_irradiance,df_all_export,budget_pr,
+                    irradiance_threshold=20,timestamp=15)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
+                tracker_availability_fleet_per_period[period] = tracker_availability_period_df
                 active_hours_fleet_per_period[period] = activehours_period_df
                 incidents_corrected_fleet_period_per_period[period] = incidents_corrected_period
             # </editor-fold>
@@ -413,9 +415,10 @@ def main(site_list, pre_selection, geography):
                 incidents_period = incidents_corrected_fleet_period_per_period[period]
                 availability_period = availability_fleet_per_period[period]
                 raw_availability_period = raw_availability_fleet_per_period[period]
+                tracker_availability_period = tracker_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                           raw_availability_period,
+                                                           raw_availability_period,tracker_availability_period,
                                                            period, component_data,
                                                            df_all_irradiance, df_all_export, budget_pr,
                                                            budget_export,
@@ -592,6 +595,8 @@ def main(site_list, pre_selection, geography):
                 df_all_export, budget_pr, irradiance_threshold=20)
 
             incidents = pd.concat([final_df_to_add['Active Events'], final_df_to_add['Closed Events']])
+            tracker_incidents = pd.concat([final_df_to_add['Active tracker incidents'],
+                                           final_df_to_add['Closed tracker incidents']])
 
             # File Creation
 
@@ -604,21 +609,19 @@ def main(site_list, pre_selection, geography):
             # <editor-fold desc="Calculate availability per period">
             availability_fleet_per_period = {}
             raw_availability_fleet_per_period = {}
+            tracker_availability_fleet_per_period = {}
             active_hours_fleet_per_period = {}
             incidents_corrected_fleet_period_per_period = {}
 
             for period in period_list:
-                availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
-                all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                          component_data,
-                                                                                          df_all_irradiance,
-                                                                                          df_all_export,
-                                                                                          budget_pr,
-                                                                                          irradiance_threshold=20,
-                                                                                          timestamp=15)
+                availability_period_df, raw_availability_period_df, tracker_availability_period_df, activehours_period_df, \
+                incidents_corrected_period, all_corrected_incidents, date_range = calculations.availability_in_period(
+                    incidents, tracker_incidents, period, component_data, df_all_irradiance, df_all_export, budget_pr,
+                    irradiance_threshold=20, timestamp=15)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
+                tracker_availability_fleet_per_period[period] = tracker_availability_period_df
                 active_hours_fleet_per_period[period] = activehours_period_df
                 incidents_corrected_fleet_period_per_period[period] = incidents_corrected_period
             # </editor-fold>
@@ -631,9 +634,10 @@ def main(site_list, pre_selection, geography):
                 incidents_period = incidents_corrected_fleet_period_per_period[period]
                 availability_period = availability_fleet_per_period[period]
                 raw_availability_period = raw_availability_fleet_per_period[period]
+                tracker_availability_period = tracker_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                           raw_availability_period,
+                                                           raw_availability_period,tracker_availability_period,
                                                            period, component_data,
                                                            df_all_irradiance, df_all_export, budget_pr,
                                                            budget_export,
@@ -813,22 +817,19 @@ def main(site_list, pre_selection, geography):
             # <editor-fold desc="Calculate availability per period">
             availability_fleet_per_period = {}
             raw_availability_fleet_per_period = {}
+            tracker_availability_fleet_per_period = {}
             active_hours_fleet_per_period = {}
             incidents_corrected_fleet_period_per_period = {}
 
             for period in period_list:
-                availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
-                all_corrected_incidents, date_range = calculations.availability_in_period(incidents, period,
-                                                                                          component_data,
-                                                                                          df_all_irradiance,
-                                                                                          df_all_export,
-                                                                                          budget_pr,
-                                                                                          irradiance_threshold=20,
-                                                                                          timestamp=15,
-                                                                                          site_list=site_selection)
+                availability_period_df, raw_availability_period_df, tracker_availability_period_df, activehours_period_df, \
+                incidents_corrected_period, all_corrected_incidents, date_range = calculations.availability_in_period(
+                    incidents, tracker_incidents, period, component_data, df_all_irradiance, df_all_export, budget_pr,
+                    irradiance_threshold=20, timestamp=15)
 
                 availability_fleet_per_period[period] = availability_period_df
                 raw_availability_fleet_per_period[period] = raw_availability_period_df
+                tracker_availability_fleet_per_period[period] = tracker_availability_period_df
                 active_hours_fleet_per_period[period] = activehours_period_df
                 incidents_corrected_fleet_period_per_period[period] = incidents_corrected_period
             # </editor-fold>
@@ -841,9 +842,10 @@ def main(site_list, pre_selection, geography):
                 incidents_period = incidents_corrected_fleet_period_per_period[period]
                 availability_period = availability_fleet_per_period[period]
                 raw_availability_period = raw_availability_fleet_per_period[period]
+                tracker_availability_period = tracker_availability_fleet_per_period[period]
 
                 data_period_df = calculations.pr_in_period(incidents_period, availability_period,
-                                                           raw_availability_period,
+                                                           raw_availability_period,tracker_availability_period,
                                                            period, component_data,
                                                            df_all_irradiance, df_all_export, budget_pr,
                                                            budget_export,

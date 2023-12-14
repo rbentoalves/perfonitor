@@ -599,7 +599,7 @@ def activehours_energylost_tracker(df, df_all_irradiance, df_all_export, budget_
             real_event_end_time = row['Event End Time']
             budget_pr_site = budget_pr.loc[site, :]
 
-            print("\n" + incident_id)
+            print("\n" + str(incident_id))
             df_irradiance_site = df_all_irradiance.loc[:,
                                  df_all_irradiance.columns.str.contains(site + '|Timestamp')]
 
@@ -737,7 +737,7 @@ def active_hours_and_energy_lost_all_dfs(final_df_to_add, corrected_incidents_di
 
 # <editor-fold desc="Availability Calculation">
 
-def calculate_availability_period(site, incidents, component_data, budget_pr, df_all_irradiance, df_all_export,
+def calculate_availability_period(site, incidents, tracker_incidents, component_data, budget_pr, df_all_irradiance, df_all_export,
                                   irradiance_threshold, date_start_str, date_end_str, granularity: float = 0.25,
                                   recalculate_value: bool = False):
     print(site)
@@ -755,7 +755,7 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
 
     # Get site Incidents --------------------------------------------------------------------------------------------
     site_incidents = incidents.loc[incidents['Site Name'] == site]
-
+    site_tracker_incidents = tracker_incidents.loc[tracker_incidents['Site Name'] == site]
     # Get site irradiance & export --------------------------------------------------------------------------------------------
     df_irradiance_site = df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains(site + '|Timestamp')]
     df_export_site = df_all_export.loc[:, df_all_export.columns.str.contains(site + '|Timestamp')]
@@ -851,6 +851,10 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
     relevant_incidents = site_incidents.loc[~(site_incidents['Event Start Time'] > timestamp_end_avail_analysis) & ~(
         site_incidents['Event End Time'] < timestamp_start_avail_analysis)]
 
+    relevant_tracker_incidents = site_tracker_incidents.loc[
+        ~(site_tracker_incidents['Event Start Time'] > timestamp_end_avail_analysis) &
+        ~(site_tracker_incidents['Event End Time'] < timestamp_start_avail_analysis)]
+
     #print(relevant_incidents[['ID', 'Event Start Time', 'Event End Time', 'Energy Lost (MWh)']])
 
     # </editor-fold>
@@ -878,12 +882,38 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
                 relevant_incidents.loc[index, 'Event Start Time'] = timestamp_start_avail_analysis
                 relevant_incidents.loc[index, 'Energy Lost (MWh)'] = None
 
+    for index, row in relevant_tracker_incidents.iterrows():
+        try:
+            if pd.isnull(row['Event End Time']):
+                print("Found active event: ", str(row["ID"]))
+                relevant_tracker_incidents.loc[index, 'Event End Time'] = timestamp_end_avail_analysis
+                relevant_tracker_incidents.loc[index, 'Energy Lost (MWh)'] = None
+
+            elif row['Event End Time'] > timestamp_end_avail_analysis:
+                relevant_tracker_incidents.loc[index, 'Event End Time'] = timestamp_end_avail_analysis
+                relevant_tracker_incidents.loc[index, 'Energy Lost (MWh)'] = None
+
+        except TypeError:
+            if row['Event End Time'] > timestamp_end_avail_analysis:
+                relevant_tracker_incidents.loc[index, 'Event End Time'] = timestamp_end_avail_analysis
+                relevant_tracker_incidents.loc[index, 'Energy Lost (MWh)'] = None
+
+        finally:
+            if row['Event Start Time'] < timestamp_start_avail_analysis:
+                relevant_tracker_incidents.loc[index, 'Event Start Time'] = timestamp_start_avail_analysis
+                relevant_tracker_incidents.loc[index, 'Energy Lost (MWh)'] = None
+
     ## print(relevant_incidents.loc[(relevant_incidents['Site Name'] == "LSBP - Bighorn") & (relevant_incidents['Related Component'] == "Inverter 65")])
 
     # Get incidents to keep unaltered
     incidents_unaltered = relevant_incidents.loc[~(relevant_incidents['Event Start Time'] ==
                                                    timestamp_start_avail_analysis) &
                                                  ~(relevant_incidents[
+                                                       'Event End Time'] == timestamp_end_avail_analysis)]
+
+    tracker_incidents_unaltered = relevant_tracker_incidents.loc[~(relevant_tracker_incidents['Event Start Time'] ==
+                                                   timestamp_start_avail_analysis) &
+                                                 ~(relevant_tracker_incidents[
                                                        'Event End Time'] == timestamp_end_avail_analysis)]
 
     # Get corrected incidents dict (overlappers) and then calculate real active hours and losses with that info --------
@@ -900,10 +930,18 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
                                                                active_events, recalculate=False,
                                                                granularity=granularity)
 
+    tracker_corrected_incidents = activehours_energylost_tracker(relevant_tracker_incidents, irradiance_analysis,
+                                                                 export_analysis, budget_pr, active_events)
+
     # Get corrected relevant incidents to concat with unaltered ones
     corrected_relevant_incidents = all_corrected_incidents.loc[(all_corrected_incidents['Event Start Time'] ==
                                                                 timestamp_start_avail_analysis) |
                                                                (all_corrected_incidents['Event End Time'] ==
+                                                                timestamp_end_avail_analysis)]
+
+    corrected_relevant_tracker_inc = tracker_corrected_incidents.loc[(tracker_corrected_incidents['Event Start Time'] ==
+                                                                timestamp_start_avail_analysis) |
+                                                               (tracker_corrected_incidents['Event End Time'] ==
                                                                 timestamp_end_avail_analysis)]
 
     ## print(corrected_relevant_incidents[['Related Component', 'Event Start Time','Event End Time', "Duration (h)","Active Hours (h)", 'Energy Lost (MWh)' ]])
@@ -915,14 +953,17 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
     else:
         """
     corrected_relevant_incidents = pd.concat([incidents_unaltered, corrected_relevant_incidents])
+    corrected_relevant_tracker_inc = pd.concat([tracker_incidents_unaltered, corrected_relevant_tracker_inc])
 
     # corrected_relevant_incidents = final_relevant_incidents
     # Calculate period availability-------------------------------------------------------------------------------------
     weighted_downtime = {}
     raw_weighted_downtime = {}
+    tracker_weighted_downtime = {}
     corrected_relevant_incidents['Weighted Downtime'] = ""
     corrected_relevant_incidents['Contribution to downtime %'] = ""
     corrected_relevant_incidents['Raw Contribution to downtime %'] = ""
+    corrected_relevant_tracker_inc['Contribution to downtime %'] = ""
 
     for index, row in corrected_relevant_incidents.iterrows():
         capacity = row['Capacity Related Component']
@@ -965,26 +1006,67 @@ def calculate_availability_period(site, incidents, component_data, budget_pr, df
             corrected_relevant_incidents.loc[
                 index, 'Raw Contribution to downtime %'] = ""
 
+
+    for index, row in corrected_relevant_tracker_inc.iterrows():
+        capacity = row['Capacity Related Component']
+        active_hours = row['Active Hours (h)']
+
+
+        try:
+            if capacity == float(0) or math.isnan(active_hours) or type(active_hours) == str:
+                weighted_downtime_tracker_incident = 0
+
+            else:
+                weighted_downtime_tracker_incident = (capacity * active_hours) / site_capacity
+        except TypeError:
+            weighted_downtime_tracker_incident = 0
+
+
+        tracker_weighted_downtime[row['ID']] = weighted_downtime_tracker_incident
+
+        corrected_relevant_tracker_inc.loc[index, 'Weighted Downtime'] = weighted_downtime_tracker_incident
+
+        try:
+            corrected_relevant_tracker_inc.loc[
+                index, 'Contribution to downtime %'] = weighted_downtime_tracker_incident / site_active_hours_period
+
+        except ZeroDivisionError:
+            corrected_relevant_tracker_inc.loc[
+                index, 'Contribution to downtime %'] = ""
+
+
     weighted_downtime_df = pd.DataFrame.from_dict(weighted_downtime, orient='index',
                                                   columns=['Incident weighted downtime (h)'])
     raw_weighted_downtime_df = pd.DataFrame.from_dict(raw_weighted_downtime, orient='index',
                                                       columns=['Incident weighted downtime (h)'])
+
+    weighted_downtime_tracker_df = pd.DataFrame.from_dict(tracker_weighted_downtime, orient='index',
+                                                      columns=['Incident weighted downtime (h)'])
     # print(weighted_downtime_df)
+
+
+
 
     total_weighted_downtime = weighted_downtime_df['Incident weighted downtime (h)'].sum()
     total_raw_weighted_downtime = raw_weighted_downtime_df['Incident weighted downtime (h)'].sum()
+    total_weighted_tracker_downtime = weighted_downtime_tracker_df['Incident weighted downtime (h)'].sum()
+
     try:
         availability_period = ((site_active_hours_period - total_weighted_downtime) / site_active_hours_period)
         raw_availability_period = ((site_active_hours_period - total_raw_weighted_downtime) / site_active_hours_period)
+        tracker_availability_period = ((site_active_hours_period - total_weighted_tracker_downtime) / site_active_hours_period)
+
 
     except (ZeroDivisionError, RuntimeWarning):
         availability_period = 0
         raw_availability_period = 0
+        tracker_availability_period = 0
 
-    return availability_period, raw_availability_period, site_active_hours_period, corrected_relevant_incidents, all_corrected_incidents
+    return availability_period, raw_availability_period, tracker_availability_period, site_active_hours_period, \
+           corrected_relevant_incidents, all_corrected_incidents
 
 
-def availability_in_period(incidents, period, component_data, df_all_irradiance, df_all_export, budget_pr,
+def availability_in_period(incidents, tracker_incidents, period, component_data, df_all_irradiance, df_all_export, budget_pr,
                            irradiance_threshold: int = 20, timestamp: int = 15, date: str = "", site_list: list = [],
                            recalculate_value: bool = False):
     granularity = timestamp / 60
@@ -1012,20 +1094,28 @@ def availability_in_period(incidents, period, component_data, df_all_irradiance,
     # Calculate Availability, Active Hours and Corrected Dataframe
     availability_period_per_site = {}
     raw_availability_period_per_site = {}
+    tracker_availability_period_per_site = {}
     active_hours_per_site = {}
     incidents_corrected_period_per_site = {}
     all_corrected_incidents_per_site = {}
 
     for site in site_list:
-        availability_period, raw_availability_period, site_active_hours_period, corrected_relevant_incidents, \
-        all_corrected_incidents_site = calculate_availability_period(site, incidents, component_data, budget_pr,
-                                                                     df_all_irradiance, df_all_export,
-                                                                     irradiance_threshold,
-                                                                     date_start_str, date_end_str, granularity,
-                                                                     recalculate_value)
+        availability_period, raw_availability_period, tracker_availability_period, site_active_hours_period, \
+        corrected_relevant_incidents, all_corrected_incidents_site = calculate_availability_period(site, incidents,
+                                                                                                   tracker_incidents,
+                                                                                                   component_data,
+                                                                                                   budget_pr,
+                                                                                                   df_all_irradiance,
+                                                                                                   df_all_export,
+                                                                                                   irradiance_threshold,
+                                                                                                   date_start_str,
+                                                                                                   date_end_str,
+                                                                                                   granularity,
+                                                                                                   recalculate_value)
 
         availability_period_per_site[site] = availability_period
         raw_availability_period_per_site[site] = raw_availability_period
+        tracker_availability_period_per_site[site] = tracker_availability_period
         active_hours_per_site[site] = site_active_hours_period
         incidents_corrected_period_per_site[site] = corrected_relevant_incidents
         all_corrected_incidents_per_site[site] = all_corrected_incidents_site
@@ -1047,13 +1137,15 @@ def availability_in_period(incidents, period, component_data, df_all_irradiance,
         date_range])  # , orient='index', columns=['Incident weighted downtime (h)'])
     raw_availability_period_df = pd.DataFrame.from_dict(raw_availability_period_per_site, orient='index', columns=[
         date_range])  # , orient='index', columns=['Incident weighted downtime (h)'])
+    tracker_availability_period_df = pd.DataFrame.from_dict(tracker_availability_period_per_site, orient='index',
+                                                            columns=[date_range])
 
     activehours_period_df = pd.DataFrame.from_dict(active_hours_per_site, orient='index', columns=[date_range])
     incidents_corrected_period = pd.concat(list(incidents_corrected_period_per_site.values()))
     all_corrected_incidents = pd.concat(list(all_corrected_incidents_per_site.values()))
 
-    return availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
-           all_corrected_incidents, date_range
+    return availability_period_df, raw_availability_period_df,tracker_availability_period_df, activehours_period_df, \
+           incidents_corrected_period, all_corrected_incidents, date_range
 
 
 def day_end_availability(pr_data_period_df, final_df_to_add, component_data, tracker_data, all_site_info):
@@ -1116,8 +1208,8 @@ def down_capacity_calculation(df, component_data):
 
 # <editor-fold desc="PR Calculation">
 
-def pr_in_period(incidents_period, availability_period, raw_availability_period, period, component_data,
-                 df_all_irradiance, df_all_export, budget_pr, budget_export, budget_irradiance,
+def pr_in_period(incidents_period, availability_period, raw_availability_period, tracker_availability_period,
+                 period, component_data,df_all_irradiance, df_all_export, budget_pr, budget_export, budget_irradiance,
                  irradiance_threshold: int = 20, timestamp: int = 15, date: str = "", site_list: list = []):
     # Get site list --------- could be input
     if len(site_list) == 0:
@@ -1203,6 +1295,7 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
             # Get availability in Period
             availability = availability_period.loc[site, :].values[0]
             raw_availability = raw_availability_period.loc[site, :].values[0]
+            tracker_availability = tracker_availability_period.loc[site, :].values[0]
 
             # print(site, "\n Expected Energy: ", expected_energy,"\n Exported Energy: " ,exported_energy, "\n Energy Lost: ", energy_lost)
             # incidents_period_site = incidents_period.loc[(incidents_period['Component Status'] == "Not Producing") & (incidents['Site Name'] == site) & (incidents['Event Start Time'] > )].reset_index(None, drop=True)
@@ -1211,6 +1304,7 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
             data_period_per_site[site] = ("{:.2%}".format(availability),
                                           "{:.2%}".format(raw_availability),
+                                          "{:.2%}".format(tracker_availability),
                                           "{:.2%}".format(actual_pr),
                                           "{:,.2f}".format(exported_energy),
                                           "{:,.2f}".format(energy_lost),
@@ -1226,7 +1320,7 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
             continue
 
     data_period_df = pd.DataFrame.from_dict(data_period_per_site, columns=['Availability (%)', 'Raw Availability (%)',
-                                                                           'Actual PR (%)',
+                                                                           'Tracker Availability (%)', 'Actual PR (%)',
                                                                            "Actual Exported Energy (kWh)",
                                                                            "Energy Lost (kWh)", "Corrected PR (%)",
                                                                            "Actual Irradiance (kWh/m2)",
