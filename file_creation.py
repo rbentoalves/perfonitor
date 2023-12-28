@@ -602,6 +602,12 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
     format_first_column.set_bold()
     format_first_column.set_border()
     format_first_column.set_text_wrap()
+
+    format_blank = workbook.add_format({'valign': 'vcenter'})
+    format_blank.set_align('right')
+    format_blank.set_border()
+
+
     # </editor-fold>
 
     # <editor-fold desc="Performance Overview Sheet">
@@ -746,9 +752,29 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
                 ws_sheet.write_column(data_cell, data, format_first_column)
                 ws_sheet.set_column(all_column, 18)
 
+
             elif "Time" in header:
+
                 ws_sheet.write(header_cell, header, format_header)
-                ws_sheet.write_column(data_cell, data, format_day_hour)
+
+                if "O&M" in header:
+
+                    for i in range(len(data)):
+
+                        data_cell = column_letter + str(i + 2)
+
+                        if pd.isnull(data[i]):
+
+                            ws_sheet.write_blank(data_cell, None, format_blank)
+
+                        else:
+
+                            ws_sheet.write(data_cell, data[i], format_day_hour)
+
+                else:
+
+                    ws_sheet.write_column(data_cell, data, format_day_hour)
+
                 ws_sheet.set_column(all_column, 19)
 
             elif "Capacity" in header or "(" in header:
@@ -892,6 +918,12 @@ def create_curtailment_file(dest_file, site_selection, curtailment_events_by_sit
         {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
     format_first_column.set_bold()
     format_first_column.set_border()
+
+    format_blank = workbook.add_format({'valign': 'vcenter'})
+    format_blank.set_align('right')
+    format_blank.set_border()
+
+
     # </editor-fold>
 
     for site in site_selection:
@@ -923,10 +955,30 @@ def create_curtailment_file(dest_file, site_selection, curtailment_events_by_sit
                 ws_sheet.write_column(data_cell, data, format_first_column)
                 ws_sheet.set_column(all_column, width[i + 1])
 
+
             elif "Time" in header:
+
                 ws_sheet.write(header_cell, header, format_header)
-                ws_sheet.write_column(data_cell, data, format_day_hour)
-                ws_sheet.set_column(all_column, width[i + 1])
+
+                if "O&M" in header:
+
+                    for i in range(len(data)):
+
+                        data_cell = column_letter + str(i + 2)
+
+                        if pd.isnull(data[i]):
+
+                            ws_sheet.write_blank(data_cell, None, format_blank)
+
+                        else:
+
+                            ws_sheet.write(data_cell, data[i], format_day_hour)
+
+                else:
+
+                    ws_sheet.write_column(data_cell, data, format_day_hour)
+
+                ws_sheet.set_column(all_column, 19)
 
             elif "Capacity" in header or "(" in header:
                 ws_sheet.write(header_cell, header, format_header)
@@ -1200,6 +1252,10 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
     format_day_hour.set_align('right')
     format_day_hour.set_border()
 
+    format_blank = workbook.add_format({'valign': 'vcenter'})
+    format_blank.set_align('right')
+    format_blank.set_border()
+
     # Format numbers
     format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
     format_number.set_border()
@@ -1249,6 +1305,9 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
     format_first_column.set_bold()
     format_first_column.set_border()
     format_first_column.set_text_wrap()
+
+
+
     # </editor-fold>
 
     # <editor-fold desc="YTD Performance Overview Sheet">
@@ -1360,6 +1419,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
     active_events = final_df_to_add['Active Events']
     overview_events = active_events.loc[active_events['Component Status'] == "Not Producing"][
         ['Site Name', 'ID', 'Related Component', 'Event Start Time', 'Energy Lost (MWh)', 'Capacity Related Component']]
+
     overview_events['% of site affected'] = [
         "{:.2%}".format(row['Capacity Related Component'] / float(site_capacities.loc[row['Site Name']])) for index, row
         in overview_events.iterrows()]
@@ -1570,6 +1630,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
         final_df_to_add['FMECA'].columns.to_list().index('Fault') + 1)
 
     for sheet in final_df_to_add.keys():
+        print(sheet)
         df = final_df_to_add[sheet]
         width = get_col_widths(df)
         n_rows = df.shape[0]
@@ -1595,7 +1656,16 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
 
                 elif "Time" in header:
                     ws_sheet.write(header_cell, header, format_header)
-                    ws_sheet.write_column(data_cell, data, format_day_hour)
+                    if "O&M" in header:
+                        for i in range(len(data)):
+                            data_cell = column_letter + str(i+2)
+                            if pd.isnull(data[i]):
+                                ws_sheet.write_blank(data_cell, None, format_blank)
+                            else:
+                                ws_sheet.write(data_cell, data[i], format_day_hour)
+                    else:
+                        ws_sheet.write_column(data_cell, data, format_day_hour)
+
                     ws_sheet.set_column(all_column, 19)
 
                 elif "Capacity" in header or "(" in header:

@@ -718,15 +718,15 @@ def rounddatesactive_15m(site, df, freq: int = 15):
     round_to = str(freq) + 'min'
 
     try:
-        to_round_startdate = pd.to_datetime(df['Event Start Time'], format='%Y-%m-%d %H:%M:%S')
+        #to_round_startdate = pd.to_datetime(df['Event Start Time'], format='%Y-%m-%d %H:%M:%S')
         #to_round_startdate = df['Event Start Time']
         #to_round_startdate = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in to_round_startdate]
 
-        rounded_startdate = pd.Series(to_round_startdate).dt.round(round_to, 'shift_backward')
+        #rounded_startdate = pd.Series(to_round_startdate).dt.round(round_to, 'shift_backward')
 
-        rounded_startdate.index = df.index.to_list()
+        #rounded_startdate.index = df.index.to_list()
 
-        df['Rounded Event Start Time'] = rounded_startdate
+        df['Rounded Event Start Time'] = pd.to_datetime(df["Event Start Time"], format='%Y-%m-%d %H:%M:%S').dt.ceil("15min")
 
     except AttributeError:
         print('No new active events on this day for ' + site)
@@ -741,22 +741,24 @@ def rounddatesclosed_15m(site, df, freq: int = 15):
     round_to = str(freq) + 'min'
 
     try:
-        to_round_startdate = pd.to_datetime(df['Event Start Time'], format='%Y-%m-%d %H:%M:%S')
+        #to_round_startdate = pd.to_datetime(df['Event Start Time'], format='%Y-%m-%d %H:%M:%S')
         #to_round_startdate = df['Event Start Time']
         #to_round_startdate = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in to_round_startdate]
 
-        to_round_enddate = pd.to_datetime(df['Event End Time'], format='%Y-%m-%d %H:%M:%S')
+        #to_round_enddate = pd.to_datetime(df['Event End Time'], format='%Y-%m-%d %H:%M:%S')
+
         #to_round_enddate = df['Event End Time']
         #to_round_enddate = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in to_round_enddate]
 
-        rounded_startdate = pd.Series(to_round_startdate).dt.round(round_to, 'shift_backward')
-        rounded_enddate = pd.Series(to_round_enddate).dt.round(round_to, 'shift_forward')
+        #rounded_startdate = pd.Series(to_round_startdate).dt.round(round_to, 'shift_forward')
+        #rounded_enddate = pd.Series(to_round_enddate).dt.round(round_to, 'shift_forward')
 
-        rounded_startdate.index = df.index.to_list()
-        rounded_enddate.index = df.index.to_list()
 
-        df['Rounded Event Start Time'] = rounded_startdate
-        df['Rounded Event End Time'] = rounded_enddate
+        #rounded_startdate.index = df.index.to_list()
+        #rounded_enddate.index = df.index.to_list()
+
+        df['Rounded Event Start Time'] = pd.to_datetime(df["Event Start Time"], format='%Y-%m-%d %H:%M:%S').dt.ceil("15min")
+        df['Rounded Event End Time'] = pd.to_datetime(df["Event End Time"], format='%Y-%m-%d %H:%M:%S').dt.ceil("15min")
 
     except AttributeError:
         print('No new closed events on this day for ' + site)
