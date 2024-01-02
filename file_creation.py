@@ -757,24 +757,15 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
 
                 ws_sheet.write(header_cell, header, format_header)
 
-                if "O&M" in header:
-
+                if "Exclusion" in header:
                     for i in range(len(data)):
-
                         data_cell = column_letter + str(i + 2)
-
                         if pd.isnull(data[i]):
-
                             ws_sheet.write_blank(data_cell, None, format_blank)
-
                         else:
-
                             ws_sheet.write(data_cell, data[i], format_day_hour)
-
                 else:
-
                     ws_sheet.write_column(data_cell, data, format_day_hour)
-
                 ws_sheet.set_column(all_column, 19)
 
             elif "Capacity" in header or "(" in header:
@@ -960,24 +951,15 @@ def create_curtailment_file(dest_file, site_selection, curtailment_events_by_sit
 
                 ws_sheet.write(header_cell, header, format_header)
 
-                if "O&M" in header:
-
+                if "Exclusion" in header:
                     for i in range(len(data)):
-
                         data_cell = column_letter + str(i + 2)
-
                         if pd.isnull(data[i]):
-
                             ws_sheet.write_blank(data_cell, None, format_blank)
-
                         else:
-
                             ws_sheet.write(data_cell, data[i], format_day_hour)
-
                 else:
-
                     ws_sheet.write_column(data_cell, data, format_day_hour)
-
                 ws_sheet.set_column(all_column, 19)
 
             elif "Capacity" in header or "(" in header:
@@ -1656,7 +1638,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
 
                 elif "Time" in header:
                     ws_sheet.write(header_cell, header, format_header)
-                    if "O&M" in header:
+                    if "Exclusion" in header:
                         for i in range(len(data)):
                             data_cell = column_letter + str(i+2)
                             if pd.isnull(data[i]):

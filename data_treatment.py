@@ -1229,11 +1229,12 @@ def create_fmeca_dataframes_for_validation(fmeca_data):
 def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = False,
                               simple_match: bool = False, tracker: bool = False):
     desired_columns_components = ["ID", "Site Name", "Related Component", "Capacity Related Component",
-                                  "Component Status", "Event Start Time", "Event O&M Response Time", "Event End Time",
-                                  "Duration (h)", "Active Hours (h)", "Energy Lost (MWh)", "Comments", "Remediation",
-                                  "Fault", "Fault Component", "Failure Mode", "Failure Mechanism",
-                                  "Category", "Subcategory", "Resolution Category", "Excludable", "Excludable Category",
-                                  "Exclusion Rationale", "Incident Status", "Categorization Status"]
+                                  "Component Status", "Event Start Time", "Event End Time", "Duration (h)",
+                                  "Active Hours (h)", "Energy Lost (MWh)", "Comments","Remediation", "Fault",
+                                  "Fault Component", "Failure Mode", "Failure Mechanism", "Category", "Subcategory",
+                                  "Resolution Category", "Excludable", "Exclusion Start Time", "Exclusion End Time",
+                                  "Excludable Category", "Exclusion Rationale", "Incident Status",
+                                  "Categorization Status"]
     if not df.empty:
         if simple_match is False:
             curtailment_fmeca = fmeca_data.loc[fmeca_data['Failure Mode'] == 'Curtailment']
