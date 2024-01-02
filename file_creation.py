@@ -471,6 +471,7 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
     df_tracker_active["Event End Time"] = ""
 
     df_incidents = pd.concat([df_active, df_closed])
+    df_tracker_incidents = pd.concat([df_tracker_active, df_tracker_closed])
 
     # print(df_incidents[["Related Component", "Event Start Time", "Event End Time"]])
 
@@ -481,15 +482,21 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
                                       if timestamp == "" else datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for
                                       timestamp in df_incidents["Event End Time"]]
 
+    df_tracker_incidents["Event Start Time"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp
+                                        in df_tracker_incidents["Event Start Time"]]
+
+    df_tracker_incidents["Event End Time"] = [datetime.strptime(str(date + " 23:00:00"), '%Y-%m-%d %H:%M:%S')
+                                      if timestamp == "" else datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for
+                                      timestamp in df_tracker_incidents["Event End Time"]]
+
     # </editor-fold>
 
     # Availability Calculation
 
-    availability_period_df, raw_availability_period_df, activehours_period_df, incidents_corrected_period, \
-    all_corrected_incidents, date_range = calculations.availability_in_period(df_incidents, period, component_data,
-                                                                              irradiance_df, export_df, budget_pr,
-                                                                              irradiance_threshold=20, timestamp=15,
-                                                                              date=date)
+    availability_period_df, raw_availability_period_df, tracker_availability_period_df, activehours_period_df, \
+    incidents_corrected_period, all_corrected_incidents, date_range = \
+        calculations.availability_in_period(df_incidents, df_tracker_incidents, period, component_data,irradiance_df,
+                                            export_df, budget_pr, irradiance_threshold=20, timestamp=15, date=date)
 
     # print(availability_period_df)
     final_df_to_add["Incidents Daily Overview"] = data_treatment.match_df_to_event_tracker(all_corrected_incidents,
@@ -497,9 +504,9 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
                                                                                            simple_match=True)
 
     pr_data_period_df = calculations.pr_in_period(all_corrected_incidents, availability_period_df,
-                                                  raw_availability_period_df, period, component_data, irradiance_df,
-                                                  export_df, budget_pr, budget_export, budget_irr,
-                                                  irradiance_threshold=20, timestamp=15, date=date)
+                                                  raw_availability_period_df, tracker_availability_period_df, period,
+                                                  component_data, irradiance_df, export_df, budget_pr, budget_export,
+                                                  budget_irr, irradiance_threshold=20, timestamp=15, date=date)
 
     pr_data_period_df = calculations.day_end_availability(pr_data_period_df, final_df_to_add, component_data,
                                                           tracker_data, all_site_info)
