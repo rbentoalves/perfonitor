@@ -1421,7 +1421,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
                                 irradiance_column] / 1000)
                             for index, row in power_irradiance_site.iterrows()]
 
-                        print("Expected and Corrected Power Clipped at each moment")
+                        print("Expected and Corrected Power Curtailed at each moment")
                         power_irradiance_site['Power Lost'] = [(row['Expected Power'] - row[power_column]) if
                                                                (row['Expected Power'] - row[power_column]) > 0 else 0
                                                                for index, row in power_irradiance_site.iterrows()]
@@ -1552,7 +1552,7 @@ def clipping_classic(source_folder, geography, geography_folder, site_selection,
             (nominal_power * row["Budget PR"] * row['Available Capacity'] * row[irradiance_column] / 1000) for
             index, row in power_irradiance_site.iterrows()]
 
-        print("Expected and Corrected Power Clipped at each moment")
+        print("Expected and Corrected Power Curtailed at each moment")
         power_irradiance_site['Power Clipped'] = [
             (row['Expected Power'] - row[power_column]) if row[power_column] >= max_export_capacity_buffed and (
                 row['Expected Power'] - row[power_column]) > 0 else 0 for index, row in
