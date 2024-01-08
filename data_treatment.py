@@ -156,14 +156,8 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                 rpi_actual_end_time = effective_end_time_incident
                                 print("New End time: " + str(effective_end_time_incident))
 
-                            timestamp_range = list(pd.date_range(start=rpi_start_time,
-                                                                 end=rpi_end_time, freq='15min'))
-
                             actual_timestamp_range = list(pd.date_range(start=rpi_start_time,
                                                                         end=rpi_end_time, freq='1min'))
-
-                            timestamp_range_eloss = list(pd.date_range(start=rpi_start_time,
-                                                                       end=rpi_end_time, freq='15min'))
 
                             if row_rpi["Failure Mode"] == "Curtailment":
                                 print("Correcting for curtailment")
@@ -210,13 +204,16 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
 
                         overlapped_time_1m = len(actual_timestamps_to_remove) / 60
 
+                        #timetamps to keep for active hours
                         timestamps_to_keep = [timestamp for timestamp in irradiance_incident['Timestamp'].to_list() if
                                               timestamp not in timestamps_to_remove]
 
+                        # timetamps to keep for energy loss
                         timestamps_to_keep_eloss = [timestamp for timestamp in
                                                     irradiance_incident['Timestamp'].to_list() if timestamp
                                                     not in timestamps_to_remove_eloss]
 
+                        # irradiance for active hours
                         corrected_irradiance_incident = irradiance_incident.loc[
                             irradiance_incident['Timestamp'].isin(timestamps_to_keep)]
 
@@ -225,6 +222,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                         actual_column = \
                             actual_column.loc[:, ~actual_column.columns.str.contains('curated')].columns.values[0]
 
+                        # irradiance for energy lost
                         cleaned_irradiance = irradiance_incident.loc[
                             irradiance_incident['Timestamp'].isin(timestamps_to_keep_eloss)].dropna(
                             subset=[actual_column])
