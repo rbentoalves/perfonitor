@@ -162,25 +162,25 @@ def input_time_operation_site(site, date):
     return stime, etime
 
 
-def choose_period_of_analysis(granularity_avail, last_timestamp, date: str = "", year_analysis: int = 0):
+def choose_period_of_analysis(granularity_avail, last_timestamp = "", date: str = "", year_analysis: int = 0):
     """ input: option = ["mtd", "ytd", "monthly", "choose"], month_analysis, year_analysis
 
     output: start_date, end_date
     """
 
-    possible_granularity_avail = ["mtd", "ytd", "monthly", "choose", "day"]
-    current_day = last_timestamp.day
+    #possible_granularity_avail = ["mtd", "ytd", "monthly", "choose", "day"]
 
     if not len(date) == 0:
         print(date, " ", type(date))
         date_start_str = date_end_str = str(date)
 
     else:
-        year = last_timestamp.year
-        month = last_timestamp.month
-        day = last_timestamp.day
+
 
         if granularity_avail == "mtd":
+            year = last_timestamp.year
+            month = last_timestamp.month
+            day = last_timestamp.day
 
             date_start_str = str(year) + "-" + str(month) + "-01"
             if day < 10 and month < 10:
@@ -194,6 +194,9 @@ def choose_period_of_analysis(granularity_avail, last_timestamp, date: str = "",
                 date_end_str = str(year) + "-" + str(month) + "-" + str(day)
 
         elif granularity_avail == "ytd":
+            year = last_timestamp.year
+            month = last_timestamp.month
+            day = last_timestamp.day
 
             date_start_str = str(year) + "-01-01"
             if month < 10:
