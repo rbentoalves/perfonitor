@@ -786,10 +786,15 @@ def verify_read_time_of_operation(site, day, stime, etime):
             print('Submitted for ' + site + ':')
             print(stime)
             print(etime)
-            break
+            window.close()
+
+            return stime, etime
+
         if event == 'Change hours':
             stime, etime = inputs.input_time_operation_site(site, str(day))
-            break
+            window.close()
+            return stime, etime
+
     window.close()
 
     return stime, etime

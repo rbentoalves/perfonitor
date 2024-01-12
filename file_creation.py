@@ -201,16 +201,15 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
     # previous_dmr_path = geography_folder + '/Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "") + '.xlsx'
 
     folder_content = os.listdir(geography_folder)
-    previous_dmr_path = 'Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "")
-    report_file_list = [geography_folder + '/' + file for file in folder_content if previous_dmr_path in file]
+    #previous_dmr_path = 'Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "")
+    #report_file_list = [geography_folder + '/' + file for file in folder_content if previous_dmr_path in file]
 
-    print(report_file_list)
+    #print(report_file_list)
 
     # READ FILES AND EXTRACT RAW DATAFRAMES
     print('Reading Daily Alarm Report...')
     df_all, incidents_file, tracker_incidents_file, irradiance_df, prev_active_events, prev_active_tracker_events \
-        = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path,
-                                                   report_file_list)
+        = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path)
     print('Daily Alarm Report read!')
     print('newfile: ' + incidents_file)
     print('newtrackerfile: ' + tracker_incidents_file)
