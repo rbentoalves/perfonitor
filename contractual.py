@@ -1,8 +1,6 @@
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
 import numpy as np
-from append_df_to_excel import append_df_to_excel
-from append_df_to_excel_existing import append_df_to_excel_existing
 from datetime import datetime
 import datetime as dt
 from openpyxl import Workbook
@@ -80,8 +78,20 @@ def get_incidents_df_for_exclusions(incidents_period, site):
                                                       & ~(
             np_site_incidents["Excludable Category"] == "Sub-Inverter Level")
                                                       & ~(np_site_incidents["Excludable Category"] == "Curtailment")]
-    print(np_site_incidents_par_exc.shape)
+
     np_site_incidents_non_exc = np_site_incidents.loc[~(np_site_incidents["Excludable"] == "Yes")]
+
+    np_site_incidents_sub_inv = np_site_incidents.loc[
+        (np_site_incidents["Excludable Category"] == "Sub-Inverter Level")]
+    np_site_incidents_curt = np_site_incidents.loc[(np_site_incidents["Excludable Category"] == "Curtailment")]
+
+    print(np_site_incidents_par_exc.shape)
+    print(np_site_incidents_non_exc.shape)
+    print(np_site_incidents_sub_inv.shape)
+    print(np_site_incidents_curt.shape)
+
+    print(np_site_incidents.shape)
+
     # print(np_site_incidents.shape)
 
     rounded_start_index = np_site_incidents.columns.get_loc("Rounded Event Start Time")
@@ -92,9 +102,16 @@ def get_incidents_df_for_exclusions(incidents_period, site):
                                      pd.to_datetime(np_site_incidents_par_exc["Exclusion End Time"],
                                                     format='%Y-%m-%d %H:%M:%S').dt.ceil("15min"))
 
+    np_site_incidents_sub_inv.insert(rounded_start_index + 1, "Rounded Exclusion Start Time",
+                                     pd.to_datetime(np_site_incidents_sub_inv["Exclusion Start Time"],
+                                                    format='%Y-%m-%d %H:%M:%S').dt.ceil("15min"))
+    np_site_incidents_sub_inv.insert(rounded_start_index + 2, "Rounded Exclusion End Time",
+                                     pd.to_datetime(np_site_incidents_sub_inv["Exclusion End Time"],
+                                                    format='%Y-%m-%d %H:%M:%S').dt.ceil("15min"))
+
     # np_site_incidents_par_exc["Rounded Event O&M Response Time"] = pd.to_datetime(np_site_incidents_par_exc["Event O&M Response Time"], format='%Y-%m-%d %H:%M:%S').dt.ceil("15min")
 
-    return np_site_incidents, np_site_incidents_non_exc, np_site_incidents_par_exc
+    return np_site_incidents, np_site_incidents_non_exc, np_site_incidents_par_exc, np_site_incidents_sub_inv, np_site_incidents_curt
 
 
 def theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column):
@@ -176,7 +193,7 @@ def energy_lost_nonexcludable(production_irr_df, np_site_incidents_non_exc, comp
     for index, row in np_site_incidents_non_exc.iterrows():
 
         component = row["Related Component"]
-        # print(component)
+        print(row["ID"])
         component_type = \
         component_data_site.loc[component_data_site["Component"] == component]["Component Type"].values[0]
         nompower_component = \
@@ -252,8 +269,13 @@ def energy_lost_excludable(production_irr_df, np_site_incidents_par_exc, compone
                            np_site_incidents):
     for index, row in np_site_incidents_par_exc.iterrows():
 
+        print(row["ID"])
+
         component = row["Related Component"]
-        component = row["Related Component"]
+
+        print(component)
+
+        print(component_data_site.loc[component_data_site["Component"] == component]["Component Type"])
 
         component_type = \
         component_data_site.loc[component_data_site["Component"] == component]["Component Type"].values[0]
@@ -281,7 +303,7 @@ def energy_lost_excludable(production_irr_df, np_site_incidents_par_exc, compone
         if component_type == "Site":
             mec_site = all_site_info.loc[site, "Maximum Export Capacity"]
 
-            df_irradiance_period = df_irradiance_site.loc[r_start_time:r_end_time, curated_column]
+            df_irradiance_period = production_irr_df.loc[r_start_time:r_end_time, curated_column]
             df_irradiance_period["Energy Lost (MWh)"] = [df_irradiance_period[timestamp] * budget_pr.loc[
                 site, timestamp.replace(day=1, hour=0, minute=0, second=0)] * nompower_component for timestamp in
                                                          df_irradiance_period.index]
@@ -338,6 +360,80 @@ def energy_lost_excludable(production_irr_df, np_site_incidents_par_exc, compone
         np_site_incidents_par_exc.loc[index, "Energy Lost Contractual (MWh)"] = energy_lost_contractual_om
 
     return np_site_incidents_par_exc
+
+
+def prod_irr_dataframe_site(site, contract_type, df_export_site, df_irradiance_site, component_data_site,
+                            start_date, end_date, all_site_info, general_folder):  # , irr_threshold: float = 50):
+
+    export_column = df_export_site.columns[df_export_site.columns.str.contains(site)][0]
+
+    curated_column = df_irradiance_site.columns[df_irradiance_site.columns.str.contains('curated')][0]
+
+    if contract_type == "Energy-based":
+
+        print("Energy-based availability method")
+
+        all_spower_inverter_ac_file = general_folder + "Site Data/" + site + "/2023/" + site + " Specific Power Inverter AC.xlsx"
+        df_inverter_power = pd.read_excel(all_spower_inverter_ac_file, engine='openpyxl')
+
+        # df_all_power = pd.read_excel(all_power_file, engine='openpyxl')#, index_col = 0)
+
+        df_irradiance_site['Timestamp'] = pd.to_datetime(df_irradiance_site['Timestamp'])
+        df_export_site['Timestamp'] = pd.to_datetime(df_export_site['Timestamp'])
+        df_inverter_power['Timestamp'] = pd.to_datetime(df_inverter_power['Timestamp'])
+
+        df_irradiance_site = df_irradiance_site.loc[
+            (df_irradiance_site["Timestamp"] >= start_date) & (df_irradiance_site["Timestamp"] <= end_date)]
+        df_export_site = df_export_site.loc[
+            (df_export_site["Timestamp"] >= start_date) & (df_export_site["Timestamp"] <= end_date)]
+        df_inverter_power = df_inverter_power.loc[
+            (df_inverter_power["Timestamp"] >= start_date) & (df_inverter_power["Timestamp"] <= end_date)]
+
+        df_irradiance_site.set_index('Timestamp', inplace=True)
+        df_export_site.set_index('Timestamp', inplace=True)
+        df_inverter_power.set_index('Timestamp', inplace=True)
+
+        print("Calculating Top 40% Power")
+
+        top40_power = top40_power_inverter(df_inverter_power, all_site_info, site)
+        top40_power = top40_power[~top40_power.index.duplicated(keep='first')]
+
+        print("Calculating theoretical production of site")
+
+        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column)
+
+        print("Creating table of production and irradiance with top 40% inverter production")
+
+        production_irr_df = pd.concat([df_export_site, df_irradiance_site, top40_power], axis=1)
+
+        print("Done")
+
+    elif contract_type == "Time-based":
+
+        print("Time-based availability method")
+
+        df_irradiance_site['Timestamp'] = pd.to_datetime(df_irradiance_site['Timestamp'])
+        df_export_site['Timestamp'] = pd.to_datetime(df_export_site['Timestamp'])
+
+        df_irradiance_site = df_irradiance_site.loc[
+            (df_irradiance_site["Timestamp"] >= start_date) & (df_irradiance_site["Timestamp"] <= end_date)]
+        df_export_site = df_export_site.loc[
+            (df_export_site["Timestamp"] >= start_date) & (df_export_site["Timestamp"] <= end_date)]
+
+        df_irradiance_site.set_index('Timestamp', inplace=True)
+        df_export_site.set_index('Timestamp', inplace=True)
+
+        print("Calculating theoretical production of site")
+
+        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column)
+
+        print("Creating table of production and irradiance")
+
+        production_irr_df = pd.concat([df_export_site, df_irradiance_site], axis=1)
+
+        print("Done")
+
+    return production_irr_df
 
 
 def active_hours_non_excludable(production_irr_df, curated_column, np_site_incidents_non_exc, component_data_site,
@@ -465,6 +561,13 @@ def active_hours_excludable(production_irr_df, curated_column, np_site_incidents
             active_hours_incident_excludable = len(irradiance_incident_excludable) / 4
             active_hours_incident_contract = active_hours_incident - active_hours_incident_excludable
 
+            print(row["ID"])
+            print("Active hours incident :")
+            print(active_hours_incident)
+            print("Active hours incident Excludable:")
+            print(active_hours_incident_excludable)
+            print("Active hours incident Contract:")
+            print(active_hours_incident_contract)
 
 
         else:
@@ -525,80 +628,6 @@ def active_hours_excludable(production_irr_df, curated_column, np_site_incidents
     return np_site_incidents_par_exc
 
 
-def prod_irr_dataframe_site(site, contract_type, df_export_site, df_irradiance_site, component_data_site,
-                            start_date, end_date, all_site_info, general_folder):  # , irr_threshold: float = 50):
-
-    export_column = df_export_site.columns[df_export_site.columns.str.contains(site)][0]
-
-    curated_column = df_irradiance_site.columns[df_irradiance_site.columns.str.contains('curated')][0]
-
-    if contract_type == "Energy-based":
-
-        print("Energy-based availability method")
-
-        all_spower_inverter_ac_file = general_folder + "Site Data/" + site + "/2023/" + site + " Specific Power Inverter AC.xlsx"
-        df_inverter_power = pd.read_excel(all_spower_inverter_ac_file, engine='openpyxl')
-
-        # df_all_power = pd.read_excel(all_power_file, engine='openpyxl')#, index_col = 0)
-
-        df_irradiance_site['Timestamp'] = pd.to_datetime(df_irradiance_site['Timestamp'])
-        df_export_site['Timestamp'] = pd.to_datetime(df_export_site['Timestamp'])
-        df_inverter_power['Timestamp'] = pd.to_datetime(df_inverter_power['Timestamp'])
-
-        df_irradiance_site = df_irradiance_site.loc[
-            (df_irradiance_site["Timestamp"] >= start_date) & (df_irradiance_site["Timestamp"] <= end_date)]
-        df_export_site = df_export_site.loc[
-            (df_export_site["Timestamp"] >= start_date) & (df_export_site["Timestamp"] <= end_date)]
-        df_inverter_power = df_inverter_power.loc[
-            (df_inverter_power["Timestamp"] >= start_date) & (df_inverter_power["Timestamp"] <= end_date)]
-
-        df_irradiance_site.set_index('Timestamp', inplace=True)
-        df_export_site.set_index('Timestamp', inplace=True)
-        df_inverter_power.set_index('Timestamp', inplace=True)
-
-        print("Calculating Top 40% Power")
-
-        top40_power = top40_power_inverter(df_inverter_power, all_site_info, site)
-        top40_power = top40_power[~top40_power.index.duplicated(keep='first')]
-
-        print("Calculating theoretical production of site")
-
-        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column)
-
-        print("Creating table of production and irradiance with top 40% inverter production")
-
-        production_irr_df = pd.concat([df_export_site, df_irradiance_site, top40_power], axis=1)
-
-        print("Done")
-
-    elif contract_type == "Time-based":
-
-        print("Time-based availability method")
-
-        df_irradiance_site['Timestamp'] = pd.to_datetime(df_irradiance_site['Timestamp'])
-        df_export_site['Timestamp'] = pd.to_datetime(df_export_site['Timestamp'])
-
-        df_irradiance_site = df_irradiance_site.loc[
-            (df_irradiance_site["Timestamp"] >= start_date) & (df_irradiance_site["Timestamp"] <= end_date)]
-        df_export_site = df_export_site.loc[
-            (df_export_site["Timestamp"] >= start_date) & (df_export_site["Timestamp"] <= end_date)]
-
-        df_irradiance_site.set_index('Timestamp', inplace=True)
-        df_export_site.set_index('Timestamp', inplace=True)
-
-        print("Calculating theoretical production of site")
-
-        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column)
-
-        print("Creating table of production and irradiance")
-
-        production_irr_df = pd.concat([df_export_site, df_irradiance_site], axis=1)
-
-        print("Done")
-
-    return production_irr_df
-
-
 def contractual_availability_kpis(site, component_data_site, incidents, production_irr_df, periods_dict,
                                   contract_type, irradiance_threshold, curated_column, export_column):
     nominal_power_site = component_data_site.loc[component_data_site["Component"] == site]["Nominal Power DC"].values[0]
@@ -628,7 +657,7 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
         production_irr_df_slice = production_irr_df.loc[start_time_period:end_time_period, :]
 
         # Incidents breakdown for exclusion
-        np_site_incidents, np_site_incidents_non_exc, np_site_incidents_par_exc = get_incidents_df_for_exclusions(
+        np_site_incidents, np_site_incidents_non_exc, np_site_incidents_par_exc, np_site_incidents_sub_inv, np_site_incidents_curt = get_incidents_df_for_exclusions(
             incidents_month, site)
 
         if contract_type == "Energy-based":
@@ -639,6 +668,9 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
             np_site_incidents_par_exc = energy_lost_excludable(production_irr_df_slice, np_site_incidents_par_exc,
                                                                component_data_site, granularity_factor,
                                                                np_site_incidents)
+            np_site_incidents_sub_inv = energy_lost_excludable(production_irr_df_slice, np_site_incidents_sub_inv,
+                                                               component_data_site, granularity_factor,
+                                                               np_site_incidents)
 
             print("Non-excludable incidents")
             print("Energy Lost (MWh): ", np_site_incidents_non_exc["Energy Lost (MWh)"].sum())
@@ -646,13 +678,17 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
             print("Energy Lost Contractual (MWh): ", np_site_incidents_non_exc["Energy Lost Contractual (MWh)"].sum())
 
             print("Excludable incidents")
-            print("Energy Lost (MWh): ", np_site_incidents_par_exc["Energy Lost (MWh)"].sum())
-            print("Energy Lost T40 (MWh): ", np_site_incidents_par_exc["Energy Lost T40 (MWh)"].sum())
+            print("Energy Lost (MWh): ",
+                  np_site_incidents_par_exc["Energy Lost (MWh)"].sum() + np_site_incidents_sub_inv[
+                      "Energy Lost (MWh)"] + np_site_incidents_curt["Energy Lost (MWh)"].sum())
+            print("Energy Lost T40 (MWh): ",
+                  np_site_incidents_par_exc["Energy Lost T40 (MWh)"].sum() + np_site_incidents_sub_inv[
+                      "Energy Lost T40 (MWh)"] + np_site_incidents_curt["Energy Lost (MWh)"].sum())
             print("Energy Lost Contractual (MWh): ", np_site_incidents_par_exc["Energy Lost Contractual (MWh)"].sum())
 
-            incidents_exclusions_final = pd.concat(
-                [np_site_incidents_non_exc, np_site_incidents_par_exc]).drop_duplicates(subset="ID")
-            final_incidents_df = pd.concat([incidents_exclusions_final, np_site_incidents]).drop_duplicates(subset="ID")
+            final_incidents_df = pd.concat(
+                [np_site_incidents_non_exc, np_site_incidents_par_exc, np_site_incidents_sub_inv,
+                 np_site_incidents_curt]).drop_duplicates(subset="ID")
 
             kpis_site = {"Energy Produced": production_irr_df_slice[export_column].sum() / 1000,
                          "Energy Expected": production_irr_df_slice["Site Theoretical Production (kW)"].sum() / 4000,
@@ -673,21 +709,26 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
                                                                 granularity_factor, np_site_incidents,
                                                                 irradiance_threshold)
             np_site_incidents_non_exc = active_hours_non_excludable(production_irr_df_slice, curated_column,
-                                                                    np_site_incidents_par_exc, component_data_site,
+                                                                    np_site_incidents_non_exc, component_data_site,
                                                                     granularity_factor, np_site_incidents,
                                                                     irradiance_threshold)
+            np_site_incidents_sub_inv = active_hours_excludable(production_irr_df_slice, curated_column,
+                                                                np_site_incidents_sub_inv, component_data_site,
+                                                                granularity_factor, np_site_incidents,
+                                                                irradiance_threshold)
 
             print("Non-excludable incidents")
             print("Active Hours (h)", np_site_incidents_non_exc["Active Hours (h)"].sum())
             print("Active hours Contractual (h)", np_site_incidents_non_exc["Active Hours Contractual (h)"].sum())
 
             print("Excludable incidents")
-            print("Active Hours (h)", np_site_incidents_par_exc["Active Hours (h)"].sum())
+            print("Active Hours (h)", np_site_incidents_par_exc["Active Hours (h)"].sum() + np_site_incidents_sub_inv[
+                "Active Hours (h)"].sum() + np_site_incidents_curt["Active Hours (h)"].sum())
             print("Active Hours Contractual (h)", np_site_incidents_par_exc["Active Hours Contractual (h)"].sum())
 
-            incidents_exclusions_final = pd.concat(
-                [np_site_incidents_non_exc, np_site_incidents_par_exc]).drop_duplicates(subset="ID")
-            final_incidents_df = pd.concat([incidents_exclusions_final, np_site_incidents]).drop_duplicates(subset="ID")
+            final_incidents_df = pd.concat(
+                [np_site_incidents_non_exc, np_site_incidents_par_exc, np_site_incidents_sub_inv,
+                 np_site_incidents_curt]).drop_duplicates(subset="ID")
 
             if not final_incidents_df.empty:
                 final_incidents_df["Weighted Downtime"] = (final_incidents_df["Capacity Related Component"] *
@@ -697,14 +738,22 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
                                                                            "Capacity Related Component"] *
                                                                        final_incidents_df[
                                                                            "Active Hours Contractual (h)"]) / nominal_power_site
+
                 weighted_downtime = final_incidents_df["Weighted Downtime"].sum()
                 weighted_downtime_contractual = final_incidents_df["Weighted Downtime Contractual"].sum()
+
                 weighted_downtime_sub_inverter = \
                 final_incidents_df.loc[final_incidents_df["Excludable Category"] == "Sub-Inverter Level"][
                     "Weighted Downtime"].sum()
+                weighted_downtime_curt = \
+                final_incidents_df.loc[final_incidents_df["Excludable Category"] == "Curtailment"][
+                    "Weighted Downtime"].sum()
+
+                weighted_downtime_contractual_sub_inv = weighted_downtime_contractual + weighted_downtime_sub_inverter
+
 
             else:
-                weighted_downtime = weighted_downtime_contractual = weighted_downtime_sub_inverter = 0
+                weighted_downtime = weighted_downtime_contractual = weighted_downtime_sub_inverter = weighted_downtime_contractual_sub_inv = weighted_downtime_curt = 0
 
             kpis_site = {"Energy Produced": production_irr_df_slice[export_column].sum() / 1000,
                          "Energy Expected": production_irr_df_slice["Site Theoretical Production (kW)"].sum() / 4000,
@@ -717,8 +766,8 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
 
             kpis_site["Contractual TBA"] = (kpis_site["Active hours total"] - kpis_site[
                 "Site Eq. A.h. lost Contractual"]) / kpis_site["Active hours total"]
-            kpis_site["Contractual Sub-Inv. TBA"] = (kpis_site["Active hours total"] - (
-                    kpis_site["Site Eq. A.h. lost Contractual"] + kpis_site["Site Eq. A.h. lost Sub-Inverter"])) / \
+            kpis_site["Contractual Sub-Inv. TBA"] = (kpis_site[
+                                                         "Active hours total"] - weighted_downtime_contractual_sub_inv) / \
                                                     kpis_site["Active hours total"]
             kpis_site["Raw TBA"] = (kpis_site["Active hours total"] - kpis_site["Site Eq. A.h. lost"]) / kpis_site[
                 "Active hours total"]
@@ -736,5 +785,4 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
             site_incidents_per_period = {site + period_str: final_incidents_df}
 
     return site_kpis_df, site_incidents_per_period
-
 

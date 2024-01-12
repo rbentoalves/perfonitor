@@ -1552,7 +1552,7 @@ def clipping_classic(source_folder, geography, geography_folder, site_selection,
             (nominal_power * row["Budget PR"] * row['Available Capacity'] * row[irradiance_column] / 1000) for
             index, row in power_irradiance_site.iterrows()]
 
-        print("Expected and Corrected Power Curtailed at each moment")
+        print("Expected and Corrected Power Clipped at each moment")
         power_irradiance_site['Power Clipped'] = [
             (row['Expected Power'] - row[power_column]) if row[power_column] >= max_export_capacity_buffed and (
                 row['Expected Power'] - row[power_column]) > 0 else 0 for index, row in
@@ -1564,25 +1564,27 @@ def clipping_classic(source_folder, geography, geography_folder, site_selection,
                                                                           row[power_column]) > 0 else 0
             for index, row in power_irradiance_site.iterrows()]
         # </editor-fold>
-
+        power_irradiance_site.set_index("Timestamp", inplace = True)
         power_irradiance_site[['Day', 'Month']] = [[timestamp.date(), timestamp.strftime("%Y-%m")] for timestamp in
-                                                   power_irradiance_site["Timestamp"]]
-
+                                                   power_irradiance_site.index]
+        print(power_irradiance_site)
         # print('Done')
 
         # Create daily and monthly summaries --------------------------------------------------------------------------------
-
-        daily_summary = power_irradiance_site.groupby(['Day']).sum()[
+        print("Creating daily and monthly summaries dataframes")
+        daily_summary = power_irradiance_site.drop(columns = ["Month"]).groupby(['Day']).sum()[
                             [power_column, "Power Clipped", "Corrected Power Clipped"]] / 60
-        monthly_summary = power_irradiance_site.groupby(['Month']).sum()[
+        monthly_summary = power_irradiance_site.drop(columns = ["Day"]).groupby(['Month']).sum()[
                               [power_column, "Power Clipped", "Corrected Power Clipped"]] / 60
 
+        print("Adding % of loss")
         daily_summary['% of loss'] = daily_summary["Power Clipped"] / (
             daily_summary[power_column] + daily_summary["Power Clipped"]) * 100
         monthly_summary['% of loss'] = monthly_summary["Power Clipped"] / (
             monthly_summary[power_column] + monthly_summary["Power Clipped"]) * 100
         # daily_summary['% of loss'] = ["{:.2%}".format(value) for value in daily_summary['% of loss']]
 
+        print("Adding % of loss corrected")
         daily_summary['% of loss corrected'] = daily_summary["Corrected Power Clipped"] / (
             daily_summary[power_column] + daily_summary["Corrected Power Clipped"]) * 100
         monthly_summary['% of loss corrected'] = monthly_summary["Corrected Power Clipped"] / (
@@ -1599,9 +1601,9 @@ def clipping_classic(source_folder, geography, geography_folder, site_selection,
 
         # </editor-fold>
 
-        graphs_site = visuals.clipping_visuals(summaries, folder_img, site)
-        graphs_by_site[site] = graphs_site
+        #graphs_site = visuals.clipping_visuals(summaries, folder_img, site)
+        #graphs_by_site[site] = graphs_site
 
-    return summaries_by_site, site_selection, dest_file, component_data, fmeca_data, graphs_by_site
+    return summaries_by_site, site_selection, dest_file, component_data, fmeca_data
 
 # </editor-fold>

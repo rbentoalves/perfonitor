@@ -1013,7 +1013,7 @@ def create_curtailment_file(dest_file, site_selection, curtailment_events_by_sit
     return
 
 
-def create_clipping_file(site, summaries_site, dest_file, graphs_site):
+def create_clipping_file(site, summaries_site, dest_file):
     dest_file = dest_file.replace(".xlsx", "_" + site.replace("LSBP - ", "") + ".xlsx")
 
     writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
@@ -1146,27 +1146,27 @@ def create_clipping_file(site, summaries_site, dest_file, graphs_site):
         ws_sheet.set_default_row(30)
 
         # Insert Images
-        image_column = openpyxl.utils.cell.get_column_letter(i + 3)
-        image_column2 = openpyxl.utils.cell.get_column_letter(i + 23)
-        image_row_n = 1
+        #image_column = openpyxl.utils.cell.get_column_letter(i + 3)
+        #image_column2 = openpyxl.utils.cell.get_column_letter(i + 23)
+        #image_row_n = 1
 
-        graphs_energy = graphs_site['Energy']
-        graphs_loss = graphs_site['% of loss']
+        #graphs_energy = graphs_site['Energy']
+        #graphs_loss = graphs_site['% of loss']
 
         # for site_key in graphs_site.keys():
 
-        graph_energy_granularity = graphs_energy[key]
-        graph_loss_granularity = graphs_loss[key]
+        #graph_energy_granularity = graphs_energy[key]
+        #graph_loss_granularity = graphs_loss[key]
 
-        image_cell = image_column + str(image_row_n)
-        image_cell2 = image_column2 + str(image_row_n)
+        #image_cell = image_column + str(image_row_n)
+        #image_cell2 = image_column2 + str(image_row_n)
 
-        ws_sheet.insert_image(image_cell, graph_energy_granularity)
-        ws_sheet.insert_image(image_cell2, graph_loss_granularity)
+        #ws_sheet.insert_image(image_cell, graph_energy_granularity)
+        #ws_sheet.insert_image(image_cell2, graph_loss_granularity)
 
-        image_row_n = image_row_n + 10
+        #image_row_n = image_row_n + 10
 
-        ws_sheet.set_column((image_column + ':ZZ'), 10, format_all_white)
+        #ws_sheet.set_column((image_column + ':ZZ'), 10, format_all_white)
 
     writer.close()
 
