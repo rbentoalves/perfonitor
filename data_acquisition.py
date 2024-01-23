@@ -8,7 +8,7 @@ import PySimpleGUI as sg
 import statistics
 
 
-def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path):
+def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, report_file_list, source_of_pevents_type):
 
     dir = os.path.dirname(alarm_report_path)
     basename = os.path.basename(alarm_report_path)
@@ -36,20 +36,69 @@ def read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_track
     print("Reading daily irradiance data")
     irradiance_data = pd.read_excel(irradiance_file_path, engine="openpyxl")
 
-    print("Reading Event Tracker")
-    try:
-        report_prev_active_events = pd.read_excel(event_tracker_path,
-                                               sheet_name=["Active Events", "Active tracker incidents"],
-                                               engine="openpyxl")
+    if source_of_pevents_type == "Event Tracker":
+        print("Reading Event Tracker")
+        try:
+            report_prev_active_events = pd.read_excel(event_tracker_path,
+                                                      sheet_name=["Active Events", "Active tracker incidents"],
+                                                      engine="openpyxl")
 
-        all_prev_active_events = report_prev_active_events['Active Events']
-        all_prev_active_tracker_events = report_prev_active_events['Active tracker incidents']
+            all_prev_active_events = report_prev_active_events['Active Events']
+            all_prev_active_tracker_events = report_prev_active_events['Active tracker incidents']
 
-        all_prev_active_events['InSolar Check'] = "x"
-        all_prev_active_tracker_events['InSolar Check'] = "x"
+            all_prev_active_events['InSolar Check'] = "x"
+            all_prev_active_tracker_events['InSolar Check'] = "x"
 
-    except FileNotFoundError:
-        print("Event Tracker not found.")
+        except FileNotFoundError:
+            sg.popup("Event Tracker not found.")
+            print("Event Tracker not found.")
+
+    else:
+        try:
+            for file in report_file_list:
+                report_prev_active_events = pd.read_excel(file,
+                                                       sheet_name=["Active incidents", "Active tracker incidents"],
+                                                       engine="openpyxl")
+                print("Opening ", file)
+                #all_prev_active_events = pd.concat([all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])
+                #df_all = pd.concat([df_all, all_prev_active_events['Active Events'], all_prev_active_events['Active tracker incidents']])[df_all_columns]
+
+                prev_active_events = report_prev_active_events['Active incidents']
+                prev_active_tracker_events = report_prev_active_events['Active tracker incidents']
+
+                prev_active_events['InSolar Check'] = "x"
+                prev_active_tracker_events['InSolar Check'] = "x"
+
+                try:
+                    all_prev_active_events = pd.concat([all_prev_active_events,prev_active_events])
+                    all_prev_active_tracker_events = pd.concat([all_prev_active_tracker_events, prev_active_tracker_events])
+
+                except NameError:
+                    all_prev_active_events = prev_active_events
+                    all_prev_active_tracker_events = prev_active_tracker_events
+
+            all_prev_active_events.drop_duplicates(subset="ID", inplace = True)
+            all_prev_active_tracker_events.drop_duplicates(subset="ID", inplace = True)
+
+            #print(df_all.columns)
+        except FileNotFoundError:
+            sg.popup("DMRs not found. Using Event Tracker")
+            print("Previous Daily Monitoring Report not found.")
+
+            try:
+                report_prev_active_events = pd.read_excel(event_tracker_path,
+                                                       sheet_name=["Active Events", "Active tracker incidents"],
+                                                       engine="openpyxl")
+
+                all_prev_active_events = report_prev_active_events['Active Events']
+                all_prev_active_tracker_events = report_prev_active_events['Active tracker incidents']
+
+                all_prev_active_events['InSolar Check'] = "x"
+                all_prev_active_tracker_events['InSolar Check'] = "x"
+
+            except FileNotFoundError:
+                sg.popup("Event Tracker not found.")
+                print("Event Tracker not found.")
 
     newfile = dir + '/Incidents' + day_str + '-' + month_str + str(geography_report) + '.xlsx'
     newtrackerfile = dir + '/Tracker_Incidents' + day_str + '-' + month_str + str(geography_report) + '.xlsx'
@@ -457,8 +506,10 @@ def read_curtailment_dataframes(source_folder, geography, geopgraphy_folder, sit
 
     # <editor-fold desc="turn all of this into a data acquistion function!!!">
     date_start_str, date_end_str = inputs.choose_period_of_analysis(period)
-    date_start = datetime.strptime(date_start_str, '%Y-%m-%d')
-    date_end = datetime.strptime(date_end_str, '%Y-%m-%d')
+    date_start = datetime.strptime(date_start_str + " 00:00:00", '%Y-%m-%d %H:%M:%S')
+    date_end = datetime.strptime(date_end_str + " 23:45:00", '%Y-%m-%d %H:%M:%S')
+
+    print(date_start, "to", date_end)
 
     year = date_start.year
     dest_file_suffix = date_start.strftime("%y-%b-%d") + "to" + date_end.strftime("%y-%b-%d")

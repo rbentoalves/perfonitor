@@ -1344,10 +1344,10 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
                            "Rounded Event End Time": pd.Series(
                                [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
                                 end_timestamps]).dt.ceil("1min"),
-                           "Duration (h)": [0] * len(setpoints),
-                           "Active hours (h)": [0] * len(setpoints),
-                           "Expected Energy Loss (kWh)": [0] * len(setpoints),
-                           "Corrected Expected Energy Loss (kWh)": [0] * len(setpoints),
+                           "Duration (h)": [0.0] * len(setpoints),
+                           "Active hours (h)": [0.0] * len(setpoints),
+                           "Expected Energy Loss (kWh)": [0.0] * len(setpoints),
+                           "Corrected Expected Energy Loss (kWh)": [0.0] * len(setpoints),
                            "Comments": [str(site + " is curtailed at " + str(setpoint) + " kW") for setpoint in
                                         setpoints]}
 

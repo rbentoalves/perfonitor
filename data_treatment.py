@@ -631,11 +631,12 @@ def remove_after_sunset_events(site_list, df_input, df_info_sunlight, active_df:
     if tracker is False:
         df_final = df_input
         # This script goes through the different site's dataframes one by one and checks all of the dataframe at once
+        print(df_info_sunlight)
         for site in site_list:
             # get site dataframe
             df = df_input[site]
             # check if dataframe is not empty, in case it is then go straight to assigning the new df to the new df list
-            print(df_info_sunlight)
+
             if not df.empty:
                 # Get index of site in info_sunlight dataframe
                 index_site_array = df_info_sunlight[df_info_sunlight['Site'] == site].index.values
@@ -843,7 +844,9 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
     df_active_all = remove_incidents_component_type(df_active_all, 'Feeder')
 
     # Add capacity of each component
-    df_list_active, df_list_closed = create_df_list(site_selection)
+    # df_list_active, df_list_closed = create_df_list(site_selection)
+    df_list_active = {}
+    df_list_closed = {}
 
     for site in site_selection:
         # Create active df for a given site
@@ -863,7 +866,7 @@ def create_dfs(df, site_selection, min_dur: int = 15, roundto: int = 15):
     return df_list_active, df_list_closed
 
 
-def create_tracker_dfs(df_all, df_general_info_calc, roundto: int = 15):
+def create_tracker_dfs(df_all, site_selection, df_general_info_calc, roundto: int = 15):
     df_tracker_closed = closedtrackerdf(df_all, df_general_info_calc)
     df_tracker_active = activetrackerdf(df_all, df_general_info_calc)
 
@@ -873,10 +876,25 @@ def create_tracker_dfs(df_all, df_general_info_calc, roundto: int = 15):
     df_tracker_closed = remove_incidents_component_type(df_tracker_closed, 'TrackerModeEnabled', 'State')
     df_tracker_active = remove_incidents_component_type(df_tracker_active, 'TrackerModeEnabled', 'State')
 
-    df_tracker_closed = rounddatesclosed_15m('Trackers', df_tracker_closed, freq=roundto)
-    df_tracker_active = rounddatesactive_15m('Trackers', df_tracker_active, freq=roundto)
+    df_tracker_list_active = {}
+    df_tracker_list_closed = {}
 
-    return df_tracker_active, df_tracker_closed
+    for site in site_selection:
+        # Create active df for a given site
+        df_tracker_active_site = df_tracker_active.loc[df_tracker_active['Site Name'] == site]
+        df_tracker_active_site = df_tracker_active_site.reset_index(None, drop=True)
+        df_tracker_active_site = rounddatesactive_15m(site, df_tracker_active_site, freq=roundto)
+
+        df_tracker_list_active[site] = df_tracker_active_site
+
+        # Create closed df for a given site
+        df_tracker_closed_site = df_tracker_closed.loc[df_tracker_closed['Site Name'] == site]
+        df_tracker_closed_site = df_tracker_closed_site.reset_index(None, drop=True)
+        df_tracker_closed_site = rounddatesclosed_15m(site, df_tracker_closed_site, freq=roundto)
+
+        df_tracker_list_closed[site] = df_tracker_closed_site
+
+    return df_tracker_list_active, df_tracker_list_closed
 
 
 def activetrackerdf(df_15m, df_tracker_info_calc):
@@ -1054,87 +1072,75 @@ def comprehensive_description(df):
 
 
 def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracker: bool = False):
-    if tracker is False:
-        site_list = df.keys()
-        for site in site_list:
-            df_events = df[site]
-            index_site_array = df_info_sunlight[df_info_sunlight['Site'] == site].index.values
-            index_site = int(index_site_array[0])
-            sunrise_time = df_info_sunlight.loc[index_site, 'Time of operation start']
-            site_capacity = df_info_sunlight.loc[index_site, 'Capacity']
+    site_list = df.keys()
+    for site in site_list:
+        df_events = df[site]
+        index_site_array = df_info_sunlight[df_info_sunlight['Site'] == site].index.values
+        index_site = int(index_site_array[0])
+        sunrise_time = df_info_sunlight.loc[index_site, 'Time of operation start']
+        site_capacity = df_info_sunlight.loc[index_site, 'Capacity']
 
-            if active_events is False:
-                print('Describing closed incidents of ' + site)
-                for index, row in df_events.iterrows():
-                    rel_comp = df_events.at[index, 'Related Component']
-                    cap_rel_comp = df_events.at[index, 'Capacity Related Component']
-                    status = df_events.at[index, 'Component Status']
-
-                    duration = df_events.at[index, 'Duration (h)']
-
-                    start_date = df_events.at[index, 'Rounded Event Start Time']
-                    end_date = df_events.at[index, 'Rounded Event End Time']
-
-                    start_date_short = start_date.strftime("%b-%d")
-                    end_date_short = end_date.strftime("%b-%d")
-
-                    event_time_hour = end_date.hour
-                    event_time_minute = end_date.minute
-                    if event_time_minute == 0:
-                        event_time = str(event_time_hour) + ':0' + str(event_time_minute)
-                    else:
-                        event_time = str(event_time_hour) + ':' + str(event_time_minute)
-
-                    if start_date == sunrise_time and duration < 2:
-                        description = "• " + str(rel_comp) + ' started late at ~' + str(event_time) + ' (closed)'
-
-                    elif start_date.day != end_date.day:
-                        description = "• " + str(rel_comp) + ' was ' + status.lower() + ' from' + start_date_short + \
-                                      'until ' + end_date_short + ' at ~' + str(event_time) + ' (' + \
-                                      "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
-                    else:
-                        description = "• " + str(rel_comp) + ' was ' + status.lower() + ' on the ' + str(start_date.day)\
-                                      + ' for ~' + str(duration) + ' hours (' + \
-                                      "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
-
-                    df_events.loc[index, 'Comments'] = description
-
-                df[site] = df_events
-
-            else:
-                print('Describing active incidents of ' + site)
-                for index, row in df_events.iterrows():
-                    rel_comp = df_events.at[index, 'Related Component']
-                    start_date = df_events.at[index, 'Rounded Event Start Time']
-                    day = start_date.day
-                    month = start_date.month
-                    date = str(day) + '/' + str(month)
-                    status = df_events.at[index, 'Component Status']
-
-                    description = "• " + str(rel_comp) + ' is ' + status.lower() + ' (open since ' + \
-                                  start_date.strftime("%b-%d") + ')'
-
-                    df_events.loc[index, 'Comments'] = description
-
-                df[site] = df_events
-    else:
         if active_events is False:
-            print('Describing closed tracker incidents')
-            for index, row in df.iterrows():
-                rel_comp = df.at[index, 'Related Component']
-                duration = df.at[index, 'Duration (h)']
-                description = "• " + str(rel_comp) + ' was off position for ~' + str(duration) + ' hours (closed)'
-                df.loc[index, 'Comments'] = description
+            print('Describing closed incidents of ' + site)
+            for index, row in df_events.iterrows():
+                rel_comp = df_events.at[index, 'Related Component']
+                cap_rel_comp = df_events.at[index, 'Capacity Related Component']
+                if tracker:
+                    status = "off position"
+                else:
+                    status = df_events.at[index, 'Component Status']
+
+                duration = df_events.at[index, 'Duration (h)']
+
+                start_date = df_events.at[index, 'Rounded Event Start Time']
+                end_date = df_events.at[index, 'Rounded Event End Time']
+
+                start_date_short = start_date.strftime("%b-%d")
+                end_date_short = end_date.strftime("%b-%d")
+
+                event_time_hour = end_date.hour
+                event_time_minute = end_date.minute
+                if event_time_minute == 0:
+                    event_time = str(event_time_hour) + ':0' + str(event_time_minute)
+                else:
+                    event_time = str(event_time_hour) + ':' + str(event_time_minute)
+
+                if start_date == sunrise_time and duration < 2:
+                    description = "• " + str(rel_comp) + ' started late at ~' + str(event_time) + ' (closed)'
+
+                elif start_date.day != end_date.day:
+                    description = "• " + str(rel_comp) + ' was ' + status.lower() + ' from' + start_date_short + \
+                                  'until ' + end_date_short + ' at ~' + str(event_time) + ' (' + \
+                                  "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
+                else:
+                    description = "• " + str(rel_comp) + ' was ' + status.lower() + ' on the ' + str(start_date.day)\
+                                  + ' for ~' + str(duration) + ' hours (' + \
+                                  "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
+
+                df_events.loc[index, 'Comments'] = description
+
+            df[site] = df_events
+
         else:
-            print('Describing active tracker incidents')
-            for index, row in df.iterrows():
-                rel_comp = df.at[index, 'Related Component']
-                start_date = df.at[index, 'Rounded Event Start Time']
+            print('Describing active incidents of ' + site)
+            for index, row in df_events.iterrows():
+                rel_comp = df_events.at[index, 'Related Component']
+                start_date = df_events.at[index, 'Rounded Event Start Time']
                 day = start_date.day
                 month = start_date.month
                 date = str(day) + '/' + str(month)
-                description = "• " + str(rel_comp) + ' is off position (open since ' + date + ')'
-                df.loc[index, 'Comments'] = description
+                if tracker:
+                    status = "off position"
+                else:
+                    status = df_events.at[index, 'Component Status']
+
+                description = "• " + str(rel_comp) + ' is ' + status.lower() + ' (open since ' + \
+                              start_date.strftime("%b-%d") + ')'
+
+                df_events.loc[index, 'Comments'] = description
+
+            df[site] = df_events
+
 
     return df
 

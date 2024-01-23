@@ -185,7 +185,7 @@ def update_dump_file(irradiance_files, all_irradiance_file, data_type: str = 'Ir
     return df_all_irradiance_new
 
 
-def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geography, date, site_selection):
+def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geography, date, site_selection, source_of_pevents):
     geography_folder = os.path.dirname(alarm_report_path)
     print(site_selection)
     report_files_dict = {}
@@ -198,18 +198,18 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
     report_template_path = geography_folder + '/Info&Templates/Reporting_' + geography + '_Sites_Template.xlsx'
     general_info_path = geography_folder + '/Info&Templates/General Info ' + geography + '.xlsx'
     event_tracker_path = geography_folder + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
-    # previous_dmr_path = geography_folder + '/Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "") + '.xlsx'
+    previous_dmr_path = geography_folder + '/Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "") + '.xlsx'
 
     folder_content = os.listdir(geography_folder)
-    #previous_dmr_path = 'Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "")
-    #report_file_list = [geography_folder + '/' + file for file in folder_content if previous_dmr_path in file]
+    previous_dmr_path = 'Reporting_' + geography + '_Sites_' + str(previous_date.date()).replace("-", "")
+    report_file_list = [geography_folder + '/' + file for file in folder_content if previous_dmr_path in file]
 
     #print(report_file_list)
 
     # READ FILES AND EXTRACT RAW DATAFRAMES
     print('Reading Daily Alarm Report...')
     df_all, incidents_file, tracker_incidents_file, irradiance_df, prev_active_events, prev_active_tracker_events \
-        = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path)
+        = data_acquisition.read_daily_alarm_report(alarm_report_path, irradiance_file_path, event_tracker_path, report_file_list, source_of_pevents)
     print('Daily Alarm Report read!')
     print('newfile: ' + incidents_file)
     print('newtrackerfile: ' + tracker_incidents_file)
@@ -224,7 +224,9 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
     df_list_active, df_list_closed = data_treatment.create_dfs(df_all, site_selection, min_dur=1, roundto=1)
     print('Incidents dataframes list created')
     print('Creating tracker dataframes...')
-    df_tracker_active, df_tracker_closed = data_treatment.create_tracker_dfs(df_all, df_general_info_calc, roundto=1)
+    df_tracker_list_active, df_tracker_list_closed = data_treatment.create_tracker_dfs(df_all, site_selection,
+                                                                                       df_general_info_calc, roundto=1)
+    #df_tracker_active, df_tracker_closed = data_treatment.create_tracker_dfs(df_all, df_general_info_calc, roundto=1)
     print('Tracker dataframes created')
     print('Please set time of operation')
     df_info_sunlight, final_irradiance_data = data_acquisition.read_time_of_operation_new(irradiance_df, site_selection,
@@ -237,19 +239,24 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
     df_list_active = data_treatment.remove_after_sunset_events(site_selection, df_list_active,
                                                                df_info_sunlight, active_df=True)
 
-    df_tracker_closed = data_treatment.remove_after_sunset_events(site_selection, df_tracker_closed,
-                                                                  df_info_sunlight, tracker=True)
+    df_tracker_list_closed = data_treatment.remove_after_sunset_events(site_selection, df_tracker_list_closed,
+                                                                  df_info_sunlight)
 
-    df_tracker_active = data_treatment.remove_after_sunset_events(site_selection, df_tracker_active,
-                                                                  df_info_sunlight, active_df=True, tracker=True)
+    df_tracker_list_active = data_treatment.remove_after_sunset_events(site_selection, df_tracker_list_active,
+                                                                  df_info_sunlight, active_df=True)
     print('Adding component capacities')
     # ADD CAPACITIES TO DFS
     df_list_closed = data_treatment.complete_dataset_capacity_data(df_list_closed, all_component_data)
     df_list_active = data_treatment.complete_dataset_capacity_data(df_list_active, all_component_data)
 
+    df_tracker_list_closed = data_treatment.complete_dataset_capacity_data(df_tracker_list_closed, all_component_data)
+    df_tracker_list_active = data_treatment.complete_dataset_capacity_data(df_tracker_list_active, all_component_data)
+
     # JOIN INCIDENT TABLES AND DMR TABLES
     df_list_active = data_treatment.complete_dataset_existing_incidents(df_list_active, prev_active_events)
-    df_tracker_active = pd.concat([df_tracker_active, prev_active_tracker_events])[df_tracker_active.columns.to_list()]
+    df_tracker_list_active = data_treatment.complete_dataset_existing_incidents(df_tracker_list_active, prev_active_tracker_events)
+
+    #df_tracker_list_active = pd.concat([df_tracker_list_active, prev_active_tracker_events])[df_tracker_list_active.columns.to_list()]
 
     # CREATE INCIDENTS FILE
 
@@ -259,7 +266,10 @@ def dmr_create_incidents_files(alarm_report_path, irradiance_file_path, geograph
                            final_irradiance_data)
     print('Incidents file created!')
     print('Creating tracker incidents file...')
-    add_tracker_incidents_to_excel(tracker_incidents_file, df_tracker_active, df_tracker_closed, df_general_info)
+    add_incidents_to_excel(tracker_incidents_file, site_selection, df_tracker_list_active, df_tracker_list_closed,
+                           df_info_sunlight,final_irradiance_data)
+
+    #add_tracker_incidents_to_excel(tracker_incidents_file, df_tracker_list_active, df_tracker_list_closed, df_general_info)
     print('Tracker incidents file created!')
 
     return incidents_file, tracker_incidents_file, all_component_data
@@ -271,6 +281,8 @@ def dmrprocess1(site_selection: list = []):
     layout = [[sg.Text('Enter date of report you want to analyse', pad=((2, 10), (2, 5)))],
               [sg.CalendarButton('Choose date', target='-CAL-', format="%Y-%m-%d"),
                sg.In(key='-CAL-', text_color='black', size=(16, 1), enable_events=True, readonly=True, visible=True)],
+              [[sg.Radio('Event Tracker', group_id="source", default=True, key="-SRC-"),
+                sg.Radio('DMRs', group_id="source", default=False, key="-SRC-")]],
               [sg.Text('Choose Alarm report', pad=((0, 10), (10, 2)))],
               [sg.FileBrowse(target='-FILE-'),
                sg.In(key='-FILE-', text_color='black', size=(20, 1), enable_events=True, readonly=True, visible=True)],
@@ -301,6 +313,7 @@ def dmrprocess1(site_selection: list = []):
             geography_report_match = re.search(r'\w+?_', report_name)
             geography_report = geography_report_match.group()[:-1]
             geography = values['-GEO-']
+            source_of_pevents = values['-SRC-']
 
             # print(date[:4])
             # print(date[5:7])
@@ -313,7 +326,7 @@ def dmrprocess1(site_selection: list = []):
                 "Irradiance" in irradiance_file_path:
 
                 incidents_file, tracker_incidents_file, all_component_data = dmr_create_incidents_files(
-                    Alarm_report_path, irradiance_file_path, geography, date, site_selection)
+                    Alarm_report_path, irradiance_file_path, geography, date, site_selection, source_of_pevents)
                 sg.popup('All incident files are ready for approval', no_titlebar=True)
                 window.close()
                 return incidents_file, tracker_incidents_file, geography, date, all_component_data
@@ -426,7 +439,7 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
 
     # Read Active and Closed Events
     df_list_active, df_list_closed = data_acquisition.read_approved_incidents(incidents_file, site_list, roundto=1)
-    df_tracker_active, df_tracker_closed = data_acquisition.read_approved_tracker_inc(tracker_incidents_file, roundto=1)
+    df_tracker_list_active, df_tracker_list_closed = data_acquisition.read_approved_incidents(tracker_incidents_file, site_list, roundto=1)
 
     # Read sunrise and sunset hours
     df_info_sunlight = pd.read_excel(incidents_file, sheet_name='Info', engine="openpyxl")
@@ -434,14 +447,12 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
     df_info_sunlight['Time of operation end'] = df_info_sunlight['Time of operation end'].dt.round(freq='s')
 
     # <editor-fold desc="Describe Incidents">
-    df_list_active = data_treatment.describe_incidents(df_list_active, df_info_sunlight, active_events=True,
-                                                       tracker=False)
-    df_list_closed = data_treatment.describe_incidents(df_list_closed, df_info_sunlight, active_events=False,
-                                                       tracker=False)
-    df_tracker_active = data_treatment.describe_incidents(df_tracker_active, df_info_sunlight, active_events=True,
-                                                          tracker=True)
-    df_tracker_closed = data_treatment.describe_incidents(df_tracker_closed, df_info_sunlight, active_events=False,
-                                                          tracker=True)
+    df_list_active = data_treatment.describe_incidents(df_list_active, df_info_sunlight, active_events=True)
+    df_list_closed = data_treatment.describe_incidents(df_list_closed, df_info_sunlight, active_events=False)
+    df_tracker_list_active = data_treatment.describe_incidents(df_tracker_list_active, df_info_sunlight,
+                                                               active_events=True, tracker = True)
+    df_tracker_list_closed = data_treatment.describe_incidents(df_tracker_list_closed, df_info_sunlight,
+                                                               active_events=False, tracker = True)
 
     # </editor-fold>
 
@@ -452,11 +463,11 @@ def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", 
     df_closed = data_treatment.match_df_to_event_tracker(pd.concat(df_list_closed.values(), ignore_index=True),
                                                          component_data, fmeca_data)
 
-    df_tracker_active = data_treatment.match_df_to_event_tracker(df_tracker_active, tracker_data, fmeca_data,
-                                                                 active=True, tracker=True)
+    df_tracker_active = data_treatment.match_df_to_event_tracker(pd.concat(df_tracker_list_active.values(), ignore_index=True),
+                                                                 tracker_data, fmeca_data, active=True)
 
-    df_tracker_closed = data_treatment.match_df_to_event_tracker(df_tracker_closed, tracker_data, fmeca_data,
-                                                                 tracker=True)
+    df_tracker_closed = data_treatment.match_df_to_event_tracker(pd.concat(df_tracker_list_closed.values(), ignore_index=True),
+                                                                           tracker_data, fmeca_data)
 
     final_df_to_add = {'Active incidents': df_active,
                        "Closed incidents": df_closed,
