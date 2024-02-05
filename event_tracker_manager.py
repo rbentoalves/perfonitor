@@ -17,14 +17,13 @@ import numpy as np
 def main(site_list, pre_selection, geography):
     sg.theme('DarkAmber')  # Add a touch of color
     # All the stuff inside your window.
-    layout = [[sg.Text('Welcome to the Event Tracker Manager, what do you want to do?', pad=((2, 10), (2, 5)))],
-              [sg.Text('Event Tracker Management', pad=((10, 10), (5, 5)))],
-              [sg.Button('Create new Event Tracker', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],
-              [sg.Button('Update Event Tracker', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],
-              [sg.Text('Create Reports', pad=((10, 10), (5, 5)))],
-              [sg.Button('Event Tracker', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],
-              [sg.Button('Underperformance Report', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],
-              [sg.Button('Monday.com files', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],
+    layout = [[sg.Text('Please select process', pad=((2, 10), (2, 8)))],
+              [sg.Push(), sg.Text('Event Tracker Management', pad=((10, 10), (8, 5))), sg.Push()],\
+              [sg.Push(), sg.Button('Create new Event Tracker', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],\
+              [sg.Push(), sg.Button('Update Event Tracker', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],\
+              [sg.Push(), sg.Text('Create Reports', pad=((10, 10), (8, 5))), sg.Push()],\
+              [sg.Push(), sg.Button('Event Tracker', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],\
+              [sg.Push(), sg.Button('Underperformance Report', size=(25, 1), pad=((10, 0), (4, 4))), sg.Push()],
               [sg.Push(), sg.Exit()]]
 
     # Create the Window

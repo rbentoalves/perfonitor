@@ -36,6 +36,8 @@ def calculate_top40_energylost(start_time, end_time, r_start_time, r_end_time, p
         first_timestamp_percentage = (r_start_time - start_time).seconds / 3600
         last_timestamp_percentage = (granularity - (r_end_time - end_time)).seconds / 3600
 
+        print(power_inverters_incident)
+
         energy_first_timestamp = power_inverters_incident.iloc[0] * first_timestamp_percentage
         energy_last_timestamp = power_inverters_incident.iloc[-1] * last_timestamp_percentage
 
@@ -114,7 +116,7 @@ def get_incidents_df_for_exclusions(incidents_period, site):
     return np_site_incidents, np_site_incidents_non_exc, np_site_incidents_par_exc, np_site_incidents_sub_inv, np_site_incidents_curt
 
 
-def theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column):
+def theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column, budget_pr):
     nompower_site = all_site_info.loc[site, "Nominal Power DC"]
     mec_site = all_site_info.loc[site, "Maximum Export Capacity"]
 
@@ -186,6 +188,7 @@ def correct_overlapping_parents(component, power_inverters_incident_excludable, 
     power_inverters_incident.drop(timestamps_to_remove, inplace=True)
 
     return power_inverters_incident_excludable, power_inverters_incident
+
 
 
 def energy_lost_nonexcludable(production_irr_df, np_site_incidents_non_exc, component_data_site, granularity_factor,
@@ -265,8 +268,8 @@ def energy_lost_nonexcludable(production_irr_df, np_site_incidents_non_exc, comp
     return np_site_incidents_non_exc
 
 
-def energy_lost_excludable(production_irr_df, np_site_incidents_par_exc, component_data_site, granularity_factor,
-                           np_site_incidents):
+def energy_lost_excludable(production_irr_df, all_site_info, site, budget_pr, np_site_incidents_par_exc,
+                           component_data_site, np_site_incidents, curated_column, granularity_factor):
     for index, row in np_site_incidents_par_exc.iterrows():
 
         print(row["ID"])
@@ -331,6 +334,12 @@ def energy_lost_excludable(production_irr_df, np_site_incidents_par_exc, compone
             power_inverters_incident = production_irr_df.loc[r_start_time:r_end_time,
                                        "Top 40% Power"] * nompower_component
 
+            print("Excludable df")
+            print(power_inverters_incident_excludable)
+
+            print("Non excludable df")
+            print(power_inverters_incident)
+
             # Correct overlapping parents
             parents = (component_data_site.loc[component_data_site['Component'] == row['Related Component']]).loc[:,
                       component_data_site.columns.str.contains('Parent')].values.flatten().tolist()
@@ -347,6 +356,9 @@ def energy_lost_excludable(production_irr_df, np_site_incidents_par_exc, compone
                                                                                                             power_inverters_incident_excludable,
                                                                                                             power_inverters_incident,
                                                                                                             relevant_parents_incidents)
+                print(power_inverters_incident_excludable)
+                print(power_inverters_incident)
+                print(relevant_parents_incidents)
 
             energy_lost_excludable_period = calculate_top40_energylost(exc_start_time, exc_end_time, r_exc_start_time,
                                                                        r_exc_end_time,
@@ -363,7 +375,7 @@ def energy_lost_excludable(production_irr_df, np_site_incidents_par_exc, compone
 
 
 def prod_irr_dataframe_site(site, contract_type, df_export_site, df_irradiance_site, component_data_site,
-                            start_date, end_date, all_site_info, general_folder):  # , irr_threshold: float = 50):
+                            start_date, end_date, all_site_info, budget_pr, geography_folder):  # , irr_threshold: float = 50):
 
     export_column = df_export_site.columns[df_export_site.columns.str.contains(site)][0]
 
@@ -373,7 +385,7 @@ def prod_irr_dataframe_site(site, contract_type, df_export_site, df_irradiance_s
 
         print("Energy-based availability method")
 
-        all_spower_inverter_ac_file = general_folder + "Site Data/" + site + "/2023/" + site + " Specific Power Inverter AC.xlsx"
+        all_spower_inverter_ac_file = geography_folder + "/Site Data/" + site + "/2023/" + site + " Specific Power Inverter AC.xlsx"
         df_inverter_power = pd.read_excel(all_spower_inverter_ac_file, engine='openpyxl')
 
         # df_all_power = pd.read_excel(all_power_file, engine='openpyxl')#, index_col = 0)
@@ -400,7 +412,7 @@ def prod_irr_dataframe_site(site, contract_type, df_export_site, df_irradiance_s
 
         print("Calculating theoretical production of site")
 
-        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column)
+        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column, budget_pr)
 
         print("Creating table of production and irradiance with top 40% inverter production")
 
@@ -425,7 +437,7 @@ def prod_irr_dataframe_site(site, contract_type, df_export_site, df_irradiance_s
 
         print("Calculating theoretical production of site")
 
-        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column)
+        df_irradiance_site = theoretical_power_site(df_irradiance_site, all_site_info, site, curated_column, budget_pr)
 
         print("Creating table of production and irradiance")
 
@@ -628,13 +640,13 @@ def active_hours_excludable(production_irr_df, curated_column, np_site_incidents
     return np_site_incidents_par_exc
 
 
-def contractual_availability_kpis(site, component_data_site, incidents, production_irr_df, periods_dict,
+def contractual_availability_kpis(site, component_data_site, all_site_info, budget_pr, incidents, production_irr_df, periods_dict,
                                   contract_type, irradiance_threshold, curated_column, export_column):
     nominal_power_site = component_data_site.loc[component_data_site["Component"] == site]["Nominal Power DC"].values[0]
 
     # Granularity
     granularity = (production_irr_df.index[1] - production_irr_df.index[0])
-    granularity_factor = granularity.seconds / (3600)  # number of seconds tranformed into hours
+    granularity_factor = granularity.seconds / (3600)  # number of seconds transformed into hours
 
     for key in periods_dict.keys():
 
@@ -665,12 +677,12 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
             np_site_incidents_non_exc = energy_lost_nonexcludable(production_irr_df_slice, np_site_incidents_non_exc,
                                                                   component_data_site, granularity_factor,
                                                                   np_site_incidents)
-            np_site_incidents_par_exc = energy_lost_excludable(production_irr_df_slice, np_site_incidents_par_exc,
-                                                               component_data_site, granularity_factor,
-                                                               np_site_incidents)
-            np_site_incidents_sub_inv = energy_lost_excludable(production_irr_df_slice, np_site_incidents_sub_inv,
-                                                               component_data_site, granularity_factor,
-                                                               np_site_incidents)
+            np_site_incidents_par_exc = energy_lost_excludable(production_irr_df, all_site_info, site, budget_pr,
+                                                               np_site_incidents_par_exc, component_data_site,
+                                                               np_site_incidents, curated_column, granularity_factor)
+            np_site_incidents_sub_inv = energy_lost_excludable(production_irr_df_slice, all_site_info, site, budget_pr,
+                                                               np_site_incidents_sub_inv, component_data_site,
+                                                               np_site_incidents, curated_column, granularity_factor)
 
             print("Non-excludable incidents")
             print("Energy Lost (MWh): ", np_site_incidents_non_exc["Energy Lost (MWh)"].sum())
@@ -698,7 +710,8 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
 
             kpis_site["Contractual Energy-based Availability"] = kpis_site["Energy Produced"] / (
                     kpis_site["Energy Produced"] + kpis_site["Energy Lost Contractual"])
-            kpis_site["Raw Energy-based Availability"] = kpis_site["Energy Produced"] / kpis_site["Energy Expected"]
+            kpis_site["Raw Energy-based Availability"] = kpis_site["Energy Produced"] / (
+                    kpis_site["Energy Produced"] + kpis_site["Energy Lost T40"])
 
             kpis_site_df_period = pd.DataFrame.from_dict(kpis_site, orient='index', columns=[period_str])
 
@@ -785,4 +798,3 @@ def contractual_availability_kpis(site, component_data_site, incidents, producti
             site_incidents_per_period = {site + period_str: final_incidents_df}
 
     return site_kpis_df, site_incidents_per_period
-

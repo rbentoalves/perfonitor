@@ -3,7 +3,7 @@ import pandas as pd
 import perfonitor.data_treatment as data_treatment
 import perfonitor.data_acquisition as data_acquisition
 import perfonitor.inputs as inputs
-import perfonitor.visuals as visuals
+import perfonitor.contractual as contractual
 import calendar
 from datetime import datetime
 import timeit
@@ -263,113 +263,128 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                 df_irradiance_site = df_all_irradiance.loc[:,
                                      df_all_irradiance.columns.str.contains(site + '|Timestamp')]
 
+                #print(event_start_time)
+                #print(event_end_time)
+
                 df_corrected_irradiance_event = df_irradiance_site.loc[
                     (df_irradiance_site['Timestamp'] >= event_start_time) & (
                         df_irradiance_site['Timestamp'] <= event_end_time)]
 
-                # Get percentages of first timestamp to account for rounding
-                index_event_start_time = df_corrected_irradiance_event.index.values[0]
+                #print(df_irradiance_site)
 
-                index_event_end_time = df_corrected_irradiance_event.index.values[-1]
+                if not df_corrected_irradiance_event.empty:
+                    # Get percentages of first timestamp to account for rounding
+                    try:
+                        index_event_start_time = df_corrected_irradiance_event.index.values[0]
+                        index_event_end_time = df_corrected_irradiance_event.index.values[-1]
+                    except IndexError:
+                        index_event_start_time = index_event_end_time = None
+                        percentage_of_timestamp_start = percentage_of_timestamp_end = None
 
-                #print(event_end_time)
-                #print(real_event_end_time)
-                #print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time].index.values)
-                #print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time])
+                    #print(event_end_time)
+                    #print(real_event_end_time)
+                    #print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time].index.values)
+                    #print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time])
 
 
 
-                percentage_of_timestamp_start = data_treatment.get_percentage_of_timestamp(real_event_start_time,
-                                                                                           event_start_time)
-                percentage_of_timestamp_end = data_treatment.get_percentage_of_timestamp(real_event_end_time,
-                                                                                         event_end_time)
+                    percentage_of_timestamp_start = data_treatment.get_percentage_of_timestamp(real_event_start_time,
+                                                                                               event_start_time)
+                    percentage_of_timestamp_end = data_treatment.get_percentage_of_timestamp(real_event_end_time,
+                                                                                             event_end_time)
 
-                # GEt actual column to work with
-                actual_column, curated_column, data_gaps_proportion, poa_avg_column = \
-                    data_treatment.get_actual_irradiance_column(df_corrected_irradiance_event)
+                    # GEt actual column to work with
+                    actual_column, curated_column, data_gaps_proportion, poa_avg_column = \
+                        data_treatment.get_actual_irradiance_column(df_corrected_irradiance_event)
 
-                if actual_column is None:
-                    print(component, ' on ', event_start_time, ': No irradiance available')
-                    continue
+                    if actual_column is None:
+                        print(component, ' on ', event_start_time, ': No irradiance available')
+                        continue
 
-                elif 'curated' in actual_column:
-                    print(component, ' on ', event_start_time, ': Using curated irradiance')
+                    elif 'curated' in actual_column:
+                        print(component, ' on ', event_start_time, ': Using curated irradiance')
+                    else:
+                        print(component, ' on ', event_start_time,
+                              ': Using poa average due to curated irradiance having over 25% of data gaps')
+
+                    # Communicate data gaps percentage
+                    data_gaps_percentage = "{:.2%}".format(data_gaps_proportion)
+                    print('Data Gaps percentage: ', data_gaps_percentage)
+
+                    # Add data to correct irradiance for percentage of timestamp
+                    df_corrected_irradiance_event["Percentage of timestamp"] = [1] * df_corrected_irradiance_event.shape[0]
+                    df_corrected_irradiance_event.loc[
+                        index_event_start_time, "Percentage of timestamp"] = percentage_of_timestamp_start
+                    df_corrected_irradiance_event.loc[
+                        index_event_end_time, "Percentage of timestamp"] = percentage_of_timestamp_end
+
+                    df_corrected_irradiance_event["Corrected Irradiance"] = \
+                        df_corrected_irradiance_event[actual_column] * df_corrected_irradiance_event["Percentage of timestamp"]
+
+                    #Get irradiance periods over 50W/m2
+                    df_irradiance_event_activeperiods = df_corrected_irradiance_event.loc[df_corrected_irradiance_event[actual_column] > 50]
+
+                    df_irradiance_event_activeperiods["Corrected Irradiance"] = \
+                        df_irradiance_event_activeperiods[actual_column] * df_irradiance_event_activeperiods["Percentage of timestamp"]
+
+                    #Calculate duration
+                    duration = ((real_event_end_time - real_event_start_time).days * 24) + \
+                               ((real_event_end_time - real_event_start_time).seconds / 3600)
+
+                    active_timestamps = df_irradiance_event_activeperiods.shape[0]
+                    print("All timestamps: ", str(df_corrected_irradiance_event.shape[0]))
+                    print("Active timestamps: ", str(active_timestamps))
+
+
+                    if active_timestamps == 0:
+                        active_hours = 0
+                        energy_lost = 0
+                    else:
+                        active_hours = df_irradiance_event_activeperiods["Percentage of timestamp"].sum() * granularity
+
+                        if site == component:
+                            df_export_site = df_all_export.loc[:,
+                                             df_all_export.columns.str.contains(site + '|Timestamp')]
+                            export_column = df_all_export.columns[df_all_export.columns.str.contains(site)].values[0]
+
+                            df_export_event = df_export_site.loc[
+                                (df_export_site['Timestamp'] >= event_start_time) & (
+                                    df_export_site['Timestamp'] <= event_end_time)]
+
+                            df_export_event.at[index_event_start_time, export_column] = \
+                                percentage_of_timestamp_start * df_export_event.loc[index_event_start_time, export_column]
+
+                            df_export_event.at[index_event_end_time, export_column] = \
+                                percentage_of_timestamp_end * df_export_event.loc[index_event_end_time, export_column]
+
+                            energy_produced = df_export_event[export_column].sum()
+
+                            energy_lost = (sum(
+                                [row_el["Corrected Irradiance"] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
+                                 index_el, row_el in
+                                 df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
+
+                            #print("Site: ", site, "\nEnergy produced: ", energy_produced, "\nEnergy Expected: ",
+                            #      energy_lost)
+
+                            energy_lost = (energy_lost - energy_produced)
+
+                            #print("Real Energy Lost: ", energy_lost)
+
+                            if energy_lost < 0:
+                                energy_lost = 0
+
+                        else:
+                            energy_lost = (sum(
+                                [row_el["Corrected Irradiance"] *
+                                 budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for index_el, row_el in
+                                 df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
+
                 else:
-                    print(component, ' on ', event_start_time,
-                          ': Using poa average due to curated irradiance having over 25% of data gaps')
-
-                # Communicate data gaps percentage
-                data_gaps_percentage = "{:.2%}".format(data_gaps_proportion)
-                print('Data Gaps percentage: ', data_gaps_percentage)
-
-                # Add data to correct irradiance for percentage of timestamp
-                df_corrected_irradiance_event["Percentage of timestamp"] = [1] * df_corrected_irradiance_event.shape[0]
-                df_corrected_irradiance_event.loc[
-                    index_event_start_time, "Percentage of timestamp"] = percentage_of_timestamp_start
-                df_corrected_irradiance_event.loc[
-                    index_event_end_time, "Percentage of timestamp"] = percentage_of_timestamp_end
-
-                df_corrected_irradiance_event["Corrected Irradiance"] = \
-                    df_corrected_irradiance_event[actual_column] * df_corrected_irradiance_event["Percentage of timestamp"]
-
-                #Get irradiance periods over 50W/m2
-                df_irradiance_event_activeperiods = df_corrected_irradiance_event.loc[df_corrected_irradiance_event[actual_column] > 50]
-
-                df_irradiance_event_activeperiods["Corrected Irradiance"] = \
-                    df_irradiance_event_activeperiods[actual_column] * df_irradiance_event_activeperiods["Percentage of timestamp"]
-
-                #Calculate duration
-                duration = ((real_event_end_time - real_event_start_time).days * 24) + \
-                           ((real_event_end_time - real_event_start_time).seconds / 3600)
-
-                active_timestamps = df_irradiance_event_activeperiods.shape[0]
-                print("All timestamps: ", str(df_corrected_irradiance_event.shape[0]))
-                print("Active timestamps: ", str(active_timestamps))
-
-
-                if active_timestamps == 0:
+                    duration = ((real_event_end_time - real_event_start_time).days * 24) + \
+                               ((real_event_end_time - real_event_start_time).seconds / 3600)
                     active_hours = 0
                     energy_lost = 0
-                else:
-                    active_hours = df_irradiance_event_activeperiods["Percentage of timestamp"].sum() * granularity
-
-                    if site == component:
-                        df_export_site = df_all_export.loc[:,
-                                         df_all_export.columns.str.contains(site + '|Timestamp')]
-                        export_column = df_all_export.columns[df_all_export.columns.str.contains(site)].values[0]
-
-                        df_export_event = df_export_site.loc[
-                            (df_export_site['Timestamp'] >= event_start_time) & (
-                                df_export_site['Timestamp'] <= event_end_time)]
-
-                        df_export_event.at[index_event_start_time, export_column] = \
-                            percentage_of_timestamp_start * df_export_event.loc[index_event_start_time, export_column]
-
-                        df_export_event.at[index_event_end_time, export_column] = \
-                            percentage_of_timestamp_end * df_export_event.loc[index_event_end_time, export_column]
-
-                        energy_produced = df_export_event[export_column].sum()
-
-                        energy_lost = (sum(
-                            [row_el["Corrected Irradiance"] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
-                             index_el, row_el in
-                             df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
-
-                        #print("Site: ", site, "\nEnergy produced: ", energy_produced, "\nEnergy Expected: ",
-                        #      energy_lost)
-
-                        energy_lost = (energy_lost - energy_produced)
-
-                        #print("Real Energy Lost: ", energy_lost)
-
-                        if energy_lost < 0:
-                            energy_lost = 0
-
-                    else:
-                        energy_lost = (sum(
-                            [row_el["Corrected Irradiance"] *
-                             budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for index_el, row_el in
-                             df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
 
             else:
                 data_gaps_percentage = "{:.2%}".format(
@@ -414,6 +429,8 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                      index_el, row_el in
                      df_cleaned_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
 
+
+            #Correct corner cases
             if active_hours < 0:
                 print("Active hours below 0: " + str(incident_id))
                 active_hours = duration
@@ -516,79 +533,80 @@ def activehours_energylost_tracker(df, df_all_irradiance, df_all_export, budget_
                 (df_irradiance_site['Timestamp'] >= event_start_time) & (
                     df_irradiance_site['Timestamp'] <= event_end_time)]
 
-            # Get percentages of first timestamp to account for rounding
-            index_event_start_time = df_irradiance_event.index.values[0]
+            if not df_irradiance_event.empty:
+                # Get percentages of first timestamp to account for rounding
+                index_event_start_time = df_irradiance_event.index.values[0]
+                index_event_end_time = df_irradiance_event.index.values[-1]
 
-            #print(event_end_time)
-            #print(real_event_end_time)
-            #print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time].index.values)
-            #print(df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_end_time])
+                percentage_of_timestamp_start = data_treatment.get_percentage_of_timestamp(real_event_start_time,
+                                                                                           event_start_time)
+                percentage_of_timestamp_end = data_treatment.get_percentage_of_timestamp(real_event_end_time,
+                                                                                         event_end_time)
 
-            index_event_end_time = df_irradiance_event.index.values[-1]
+                # GEt actual column to work with
+                actual_column, curated_column, data_gaps_proportion, poa_avg_column = \
+                    data_treatment.get_actual_irradiance_column(df_irradiance_event)
 
-            percentage_of_timestamp_start = data_treatment.get_percentage_of_timestamp(real_event_start_time,
-                                                                                       event_start_time)
-            percentage_of_timestamp_end = data_treatment.get_percentage_of_timestamp(real_event_end_time,
-                                                                                     event_end_time)
+                if actual_column is None:
+                    print(component, ' on ', event_start_time, ': No irradiance available')
+                    continue
 
-            # GEt actual column to work with
-            actual_column, curated_column, data_gaps_proportion, poa_avg_column = \
-                data_treatment.get_actual_irradiance_column(df_irradiance_event)
+                elif 'curated' in actual_column:
+                    print(component, ' on ', event_start_time, ': Using curated irradiance')
+                else:
+                    print(component, ' on ', event_start_time,
+                          ': Using poa average due to curated irradiance having over 25% of data gaps')
 
-            if actual_column is None:
-                print(component, ' on ', event_start_time, ': No irradiance available')
-                continue
+                # Communicate data gaps percentage
+                data_gaps_percentage = "{:.2%}".format(data_gaps_proportion)
+                print('Data Gaps percentage: ', data_gaps_percentage)
 
-            elif 'curated' in actual_column:
-                print(component, ' on ', event_start_time, ': Using curated irradiance')
+                # Add data to correct irradiance for percentage of timestamp
+                df_irradiance_event["Percentage of timestamp"] = [1] * df_irradiance_event.shape[0]
+                df_irradiance_event.loc[
+                    index_event_start_time, "Percentage of timestamp"] = percentage_of_timestamp_start
+                df_irradiance_event.loc[
+                    index_event_end_time, "Percentage of timestamp"] = percentage_of_timestamp_end
+
+                df_irradiance_event["Corrected Irradiance"] = \
+                    df_irradiance_event[actual_column] * df_irradiance_event["Percentage of timestamp"]
+
+                # Get irradiance periods over 50W/m2
+                df_irradiance_event_activeperiods = df_irradiance_event.loc[df_irradiance_event[actual_column] > 50]
+
+                df_irradiance_event_activeperiods["Corrected Irradiance"] = \
+                    df_irradiance_event_activeperiods[actual_column] * df_irradiance_event_activeperiods[
+                        "Percentage of timestamp"]
+
+                # Calculate duration
+                duration = ((real_event_end_time - real_event_start_time).days * 24) + \
+                           ((real_event_end_time - real_event_start_time).seconds / 3600)
+
+                active_timestamps = df_irradiance_event_activeperiods.shape[0]
+                print("All timestamps: ", str(df_irradiance_event.shape[0]))
+                print("Active timestamps: ", str(active_timestamps))
+
+                if active_timestamps == 0:
+                    active_hours = 0
+                    energy_lost = 0
+                else:
+                    active_hours = df_irradiance_event_activeperiods["Percentage of timestamp"].sum() * granularity
+                    energy_lost = (sum(
+                            [row_el["Corrected Irradiance"] *
+                             budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for index_el, row_el in
+                             df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
+
+                if active_hours < 0:
+                    print("Active hours below 0: " + str(incident_id))
+                    active_hours = duration
+                elif active_hours > duration:
+                    active_hours = duration
+
             else:
-                print(component, ' on ', event_start_time,
-                      ': Using poa average due to curated irradiance having over 25% of data gaps')
-
-            # Communicate data gaps percentage
-            data_gaps_percentage = "{:.2%}".format(data_gaps_proportion)
-            print('Data Gaps percentage: ', data_gaps_percentage)
-
-            # Add data to correct irradiance for percentage of timestamp
-            df_irradiance_event["Percentage of timestamp"] = [1] * df_irradiance_event.shape[0]
-            df_irradiance_event.loc[
-                index_event_start_time, "Percentage of timestamp"] = percentage_of_timestamp_start
-            df_irradiance_event.loc[
-                index_event_end_time, "Percentage of timestamp"] = percentage_of_timestamp_end
-
-            df_irradiance_event["Corrected Irradiance"] = \
-                df_irradiance_event[actual_column] * df_irradiance_event["Percentage of timestamp"]
-
-            # Get irradiance periods over 50W/m2
-            df_irradiance_event_activeperiods = df_irradiance_event.loc[df_irradiance_event[actual_column] > 50]
-
-            df_irradiance_event_activeperiods["Corrected Irradiance"] = \
-                df_irradiance_event_activeperiods[actual_column] * df_irradiance_event_activeperiods[
-                    "Percentage of timestamp"]
-
-            # Calculate duration
-            duration = ((real_event_end_time - real_event_start_time).days * 24) + \
-                       ((real_event_end_time - real_event_start_time).seconds / 3600)
-
-            active_timestamps = df_irradiance_event_activeperiods.shape[0]
-            print("All timestamps: ", str(df_irradiance_event.shape[0]))
-            print("Active timestamps: ", str(active_timestamps))
-
-            if active_timestamps == 0:
+                duration = ((real_event_end_time - real_event_start_time).days * 24) + \
+                           ((real_event_end_time - real_event_start_time).seconds / 3600)
                 active_hours = 0
                 energy_lost = 0
-            else:
-                active_hours = df_irradiance_event_activeperiods["Percentage of timestamp"].sum() * granularity
-                energy_lost = (sum(
-                        [row_el["Corrected Irradiance"] *
-                         budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for index_el, row_el in
-                         df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
-
-            if active_hours < 0:
-                print("Active hours below 0: " + str(incident_id))
-                active_hours = duration
-            elif active_hours > duration:
-                active_hours = duration
 
             df.loc[index, 'Duration (h)'] = duration
             df.loc[index, 'Active Hours (h)'] = active_hours
@@ -1262,8 +1280,8 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
 
     df_irradiance, df_power, active_power_setpoint_df, component_data, tracker_data, fmeca_data, site_capacities, \
     fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file = \
-        data_acquisition.read_curtailment_dataframes(source_folder, geography, geography_folder, site_selection,
-                                                     period, irradiance_threshold)
+        data_acquisition.read_curtailment_dataframes(geography, geography_folder, site_selection, period,
+                                                     irradiance_threshold)
 
     site_list_setpoint = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
                                    active_power_setpoint_df.loc[:,
@@ -1474,7 +1492,7 @@ def clipping_classic(source_folder, geography, geography_folder, site_selection,
 
     df_irradiance, df_power, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
     budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, folder_img = \
-        data_acquisition.read_clipping_dataframes(source_folder, geography, geography_folder, site_selection,
+        data_acquisition.read_clipping_dataframes(geography, geography_folder, site_selection,
                                                   period, irradiance_threshold)
 
     #<editor-fold desc="Clipping Calculation">
@@ -1606,4 +1624,127 @@ def clipping_classic(source_folder, geography, geography_folder, site_selection,
 
     return summaries_by_site, site_selection, dest_file, component_data, fmeca_data
 
+
+
 # </editor-fold>
+
+
+def contractual_calculation(source_folder, geography, geopgraphy_folder, site_selection, date_cutoff,
+                                              irradiance_threshold):
+
+    # <editor-fold desc="Get data to use">
+    df_all_irradiance, df_all_export, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
+    budget_irradiance, budget_pr, budget_export, all_site_info, exclusion_periods_df, incidents, dest_folder, \
+    site_list_per_om, monthly_periods_by_site, full_period_by_site, site_selection = \
+        data_acquisition.read_contractual_dataframes(geography,geopgraphy_folder,site_selection,date_cutoff,
+                                                     irradiance_threshold)
+
+    # </editor-fold>
+
+    # <editor-fold desc="Create dataframe of production and irradiance">
+
+    for site in site_selection:
+        print(site)
+
+        start_date = monthly_periods_by_site[site]["All"][0]
+        end_date = monthly_periods_by_site[site]["All"][1]
+
+        contract_type = exclusion_periods_df.loc[site, "Contractual Availability Type"]
+
+        print(start_date)
+        print(end_date)
+
+        df_export_site = df_all_export.loc[:, df_all_export.columns.str.contains(site + "|Timestamp")]
+
+        df_irradiance_site = df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains(site + "|Timestamp")]
+        df_irradiance_site = df_irradiance_site.loc[:, df_irradiance_site.columns.str.contains('curated|Timestamp')]
+
+        component_data_site = component_data.loc[component_data["Site"] == site]
+
+        production_irr_df = contractual.prod_irr_dataframe_site(site, contract_type, df_export_site, df_irradiance_site,
+                                                    component_data_site, start_date, end_date, all_site_info, budget_pr,
+                                                    geopgraphy_folder)
+
+        try:
+            all_sites_top_prod[site] = production_irr_df
+        except NameError:
+            all_sites_top_prod = {site: production_irr_df}
+
+
+
+    # </editor-fold>
+
+    # <editor-fold desc="Month Breakdown">
+    # Month breakdown
+
+    incidents_by_site = {}
+
+    for site in site_selection:
+        print(site)
+
+        production_irr_df = all_sites_top_prod[site]
+        periods_dict = monthly_periods_by_site[site]
+
+        component_data_site = component_data.loc[component_data["Site"] == site]
+
+        irradiance_threshold = all_site_info.loc[site, "Contractual Irradiance Threshold"]
+        contract_type = all_site_info.loc[site, "Contractual Availability Type"]
+        print(contract_type)
+
+        curated_column = production_irr_df.columns[production_irr_df.columns.str.contains('curated')][0]
+        export_column = production_irr_df.columns[production_irr_df.columns.str.contains(site)][0]
+
+        site_kpis_df, site_incidents_per_period = contractual.contractual_availability_kpis(site, component_data_site,
+                                                                                            all_site_info,budget_pr,
+                                                                                            incidents, production_irr_df,
+                                                                                            periods_dict,contract_type,
+                                                                                            irradiance_threshold,
+                                                                                            curated_column, export_column)
+
+        incidents_by_site[site] = site_incidents_per_period
+
+        try:
+            all_sites_kpis[site] = site_kpis_df.T.rename_axis(site)
+        except NameError:
+            all_sites_kpis = {site: site_kpis_df.T.rename_axis(site)}
+
+    # </editor-fold>
+
+    # <editor-fold desc="Create KPIs by O&M">
+
+    kpis_by_om_dict = {}
+
+    for om in site_list_per_om.keys():
+        site_list = site_list_per_om[om]
+
+        all_site_main_kpi_dict = {}
+
+        for site in site_list:
+            site_kpis = all_sites_kpis[site]
+
+            site_kpis = site_kpis.rename_axis(["Contractual Period"])
+            month_cy_data = list(monthly_periods_by_site[site].keys())
+            month_cy_data[-1] = site + " All"
+
+            site_kpis["Month of CY"] = month_cy_data
+
+            site_kpis = site_kpis.set_index(["Month of CY"])
+
+            # print(site_kpis)
+
+            site_main_kpi = site_kpis.loc[site + " All", :]
+            # print(site_main_kpi)
+            # site_main_kpi = site_main_kpi.rename_axis(site, inplace = True)
+
+            all_site_main_kpi_dict[site] = site_main_kpi
+
+        all_site_main_kpi_df = pd.DataFrame.from_dict(all_site_main_kpi_dict).T
+        kpis_by_om_dict[om] = all_site_main_kpi_df
+
+
+    # </editor-fold>
+
+
+
+
+    return all_sites_kpis, kpis_by_om_dict, incidents_by_site, site_selection

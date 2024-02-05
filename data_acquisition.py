@@ -501,7 +501,7 @@ def read_approved_tracker_inc(tracker_file, roundto: int = 15):
 
     return df_tracker_active, df_tracker_closed
 
-def read_curtailment_dataframes(source_folder, geography, geopgraphy_folder, site_selection, period,
+def read_curtailment_dataframes(geography, geopgraphy_folder, site_selection, period,
                                 irradiance_threshold: int = 20):
 
     # <editor-fold desc="turn all of this into a data acquistion function!!!">
@@ -554,8 +554,7 @@ def read_curtailment_dataframes(source_folder, geography, geopgraphy_folder, sit
     # <editor-fold desc="Read Event Tracker incidents">
     print("Reading incidents data...")
     df_eventtracker_all = pd.read_excel(event_tracker_file_path,
-                                        sheet_name=['Active Events', 'Closed Events', 'Active tracker incidents',
-                                                    'Closed tracker incidents', 'FMECA'], engine='openpyxl')
+                                        sheet_name=['Active Events', 'Closed Events'], engine='openpyxl')
 
     df_active_eventtracker = df_eventtracker_all['Active Events']
     df_closed_eventtracker = df_eventtracker_all['Closed Events']
@@ -570,7 +569,7 @@ def read_curtailment_dataframes(source_folder, geography, geopgraphy_folder, sit
     return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
            budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file
 
-def read_clipping_dataframes(source_folder, geography, geopgraphy_folder, site_selection, period,
+def read_clipping_dataframes(geography, geopgraphy_folder, site_selection, period,
                                 irradiance_threshold: int = 20):
 
     # <editor-fold desc="turn all of this into a data acquistion function!!!">
@@ -618,8 +617,7 @@ def read_clipping_dataframes(source_folder, geography, geopgraphy_folder, site_s
     # <editor-fold desc="Read Event Tracker incidents">
     print("Reading incidents data...")
     df_eventtracker_all = pd.read_excel(event_tracker_file_path,
-                                        sheet_name=['Active Events', 'Closed Events', 'Active tracker incidents',
-                                                    'Closed tracker incidents', 'FMECA'], engine='openpyxl')
+                                        sheet_name=['Active Events', 'Closed Events'], engine='openpyxl')
 
     df_active_eventtracker = df_eventtracker_all['Active Events']
     df_closed_eventtracker = df_eventtracker_all['Closed Events']
@@ -633,6 +631,139 @@ def read_clipping_dataframes(source_folder, geography, geopgraphy_folder, site_s
 
     return df_irradiance_period, df_power_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
            budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, folder_img
+
+def read_contractual_dataframes(geography, geopgraphy_folder, site_selection, date_cutoff,
+                                irradiance_threshold: int = 20):
+
+    # <editor-fold desc="Get file paths and other info">
+    info_folder = geopgraphy_folder + "/Info&Templates/"
+    end_date = datetime.strptime(date_cutoff, '%Y-%m-%d')
+    end_date_timestamp = datetime.strptime(date_cutoff + " 23:45:00", '%Y-%m-%d %H:%M:%S')
+
+    irradiance_file_path = geopgraphy_folder + "/Irradiance " + geography + "/All_Irradiance_" + geography + ".xlsx"  # will be picked by use
+    export_file_path = geopgraphy_folder + "/Exported Energy " + geography + "/All_Energy_Exported_" + geography + ".xlsx"  # will be picked by use
+
+    event_tracker_file_path = geopgraphy_folder + '/Event Tracker/Event Tracker ' + geography + '.xlsx'
+    general_info_path = info_folder + "General Info " + geography + ".xlsx"
+
+    dest_folder = geopgraphy_folder + '/Event Tracker/Events by O&M provider/'
+
+
+    # </editor-fold>
+
+    # <editor-fold desc="Read irradiance, export and inverter data">
+    print("Reading irradiance and export data...")
+    df_all_irradiance, df_all_export = read_irradiance_export(irradiance_file_path, export_file_path)
+
+
+    print("Reading general info data...")
+    component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, budget_pr, \
+    budget_export, all_site_info = get_general_info_dataframes(general_info_path)
+
+    # </editor-fold>
+
+    # <editor-fold desc="Get period of total analysis by contract and site_list by O&M">
+
+    exclusion_periods_df = all_site_info[["O&M Provider",
+                                          "Contractual Availability Type",
+                                          "Current Guarantee Year Start",
+                                          "Current Guarantee Year End"]]
+
+    om_providers = list(set(all_site_info["O&M Provider"]))
+
+
+
+    site_list_per_om = {}
+    sites_analysable = exclusion_periods_df.dropna().index
+    sites_removed = [site for site in site_selection if site not in list(sites_analysable)]
+    new_site_selection = [site for site in site_selection if site in list(sites_analysable)]
+
+    print("Sites removed due to lack of Contractual data: \n", sites_removed)
+    # all_site_list = ['LSBP - Whitetail 1','LSBP - Whitetail 2','LSBP - Whitetail 3','LSBP - Elk Hill 1','LSBP - Elk Hill 2']
+
+    for om_provider in om_providers:
+        om_site_list = list(exclusion_periods_df[exclusion_periods_df["O&M Provider"] == om_provider].dropna().index)
+        om_site_list = [site for site in om_site_list if site in new_site_selection]
+        if len(om_site_list) == 0:
+            pass
+        else:
+            site_list_per_om[om_provider] = om_site_list
+
+    # site_list = ["LSBP - Elm Branch"]
+    # </editor-fold>
+
+    # <editor-fold desc="Get periods of analysis to breakdown major period">
+    #
+    monthly_periods_by_site = {}
+    full_period_by_site = {}
+
+    for site in new_site_selection:
+        print(site)
+
+        ex_start_date_site = exclusion_periods_df.loc[site, "Current Guarantee Year Start"]
+        ex_end_date_site = exclusion_periods_df.loc[site, "Current Guarantee Year End"]
+
+        if ex_end_date_site > end_date:
+            ex_end_date_site = end_date
+
+        if ex_end_date_site.month < 12:
+            end_dates_month = list(
+                pd.date_range(ex_start_date_site, ex_end_date_site.replace(day=1, month=ex_end_date_site.month + 1),
+                              freq='M'))
+        else:
+            end_dates_month = list(pd.date_range(ex_start_date_site, ex_end_date_site.replace(day=1, month=1,
+                                                                                              year=ex_end_date_site.year + 1),
+                                                 freq='M'))
+
+        start_dates_month = list(pd.date_range(ex_start_date_site.replace(day=1), ex_end_date_site,
+                                               freq='MS'))  # [date.replace(day=1) for date in end_dates_months]
+
+        start_dates_month[0] = start_dates_month[0].replace(day=ex_start_date_site.day)
+        end_dates_month[-1] = end_dates_month[-1].replace(day=ex_end_date_site.day)
+
+        monthly_periods_dict = {}
+
+        for key in range(0, len(start_dates_month)):
+            monthly_periods_dict["Month " + str(key)] = (
+            start_dates_month[key].replace(minute=15), end_dates_month[key].replace(hour=23, minute=45))
+
+        monthly_periods_dict["All"] = (
+        start_dates_month[0].replace(minute=15), end_dates_month[-1].replace(hour=23, minute=45))
+
+        monthly_periods_by_site[site] = monthly_periods_dict
+        full_period_by_site[site] = monthly_periods_dict["All"]
+
+    # </editor-fold>
+
+    # <editor-fold desc="Read Event Tracker incidents">
+    print("Reading incidents data...")
+    df_eventtracker_all = pd.read_excel(event_tracker_file_path,
+                                        sheet_name=['Active Events', 'Closed Events'], engine='openpyxl')
+
+    df_active_eventtracker = df_eventtracker_all['Active Events']
+    df_active_eventtracker["Event End Time"] = end_date_timestamp
+    df_closed_eventtracker = df_eventtracker_all['Closed Events']
+
+    # Create all component incidents df
+    incidents = pd.concat([df_active_eventtracker.astype(df_closed_eventtracker.dtypes), df_closed_eventtracker])
+
+    #Add missing exclusion data for excludable incidents
+    for index, row in incidents.loc[
+        (incidents["Excludable"] == "Yes") & (pd.isnull(incidents["Exclusion End Time"]))].iterrows():
+        if pd.isnull(row["Exclusion Start Time"]):
+            incidents.loc[index, "Exclusion Start Time"] = row["Event Start Time"]
+            incidents.loc[index, "Exclusion End Time"] = row["Event End Time"]
+
+        else:
+            incidents.loc[index, "Exclusion End Time"] = row["Event End Time"]
+
+    # </editor-fold>
+
+    print("Data acquisition complete")
+
+    return df_all_irradiance, df_all_export, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
+           budget_irradiance, budget_pr, budget_export, all_site_info, exclusion_periods_df, incidents, dest_folder, \
+           site_list_per_om, monthly_periods_by_site, full_period_by_site, new_site_selection
 
 # <editor-fold desc="ET Functions">
 

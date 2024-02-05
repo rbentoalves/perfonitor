@@ -281,8 +281,8 @@ def dmrprocess1(site_selection: list = []):
     layout = [[sg.Text('Enter date of report you want to analyse', pad=((2, 10), (2, 5)))],
               [sg.CalendarButton('Choose date', target='-CAL-', format="%Y-%m-%d"),
                sg.In(key='-CAL-', text_color='black', size=(16, 1), enable_events=True, readonly=True, visible=True)],
-              [[sg.Radio('Event Tracker', group_id="source", default=True, key="-SRC-"),
-                sg.Radio('DMRs', group_id="source", default=False, key="-SRC-")]],
+              [[sg.Radio('Event Tracker', group_id="source", default=True, key="-SRCET-"),
+                sg.Radio('DMRs', group_id="source", default=False, key="-SRCDMR-")]],
               [sg.Text('Choose Alarm report', pad=((0, 10), (10, 2)))],
               [sg.FileBrowse(target='-FILE-'),
                sg.In(key='-FILE-', text_color='black', size=(20, 1), enable_events=True, readonly=True, visible=True)],
@@ -313,7 +313,14 @@ def dmrprocess1(site_selection: list = []):
             geography_report_match = re.search(r'\w+?_', report_name)
             geography_report = geography_report_match.group()[:-1]
             geography = values['-GEO-']
-            source_of_pevents = values['-SRC-']
+            #source_of_pevents = values['-SRC-']
+
+            for key in values.keys():
+                if "SRC" in key and values[key] is True:
+                    if "ET" in key:
+                        source_of_pevents = "Event Tracker"
+                    elif "DMR" in key:
+                        source_of_pevents = "DMR"
 
             # print(date[:4])
             # print(date[5:7])
@@ -1177,6 +1184,355 @@ def create_clipping_file(site, summaries_site, dest_file):
         #image_row_n = image_row_n + 10
 
         #ws_sheet.set_column((image_column + ':ZZ'), 10, format_all_white)
+
+    writer.close()
+
+    writer.handles = None
+
+    print('Done')
+
+    return
+
+
+def create_contractual_files(geography_folder, df_site, site, site_incidents_list_period, date_cutoff):
+    dest_file  = geography_folder + '/Event Tracker/Events by O&M provider/' + site + ' Exclusion Results_until' + str(date_cutoff) + '.xlsx'
+    writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    workbook = writer.book
+
+    # <editor-fold desc="Formats">
+    # Format column header
+    format_darkblue_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': '#FFFFFF'})
+    format_darkblue_white.set_bold()
+    format_darkblue_white.set_text_wrap()
+
+    format_lightblue_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#DCE6F1', 'font_color': '#000000'})
+    format_lightblue_black.set_bold()
+    format_lightblue_black.set_text_wrap()
+    format_lightblue_black.set_border()
+
+    format_header = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': '#000000'})
+    format_header.set_bold()
+    format_header.set_text_wrap()
+
+    format_all_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFFFF', 'font_color': '#FFFFFF'})
+    format_all_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#000000'})
+    format_black_on_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#FFFFFF'})
+
+    # Format of specific column data
+    format_day_data = workbook.add_format({'num_format': 'dd/mm/yyyy', 'valign': 'vcenter'})
+    format_day_data.set_align('right')
+    format_day_data.set_border()
+
+    format_hour_data = workbook.add_format({'num_format': 'hh:mm:ss', 'valign': 'vcenter'})
+    format_hour_data.set_align('right')
+    format_hour_data.set_border()
+
+    format_day_hour = workbook.add_format({'num_format': 'dd/mm/yyyy hh:mm:ss', 'valign': 'vcenter'})
+    format_day_hour.set_align('right')
+    format_day_hour.set_border()
+
+    # Format numbers
+    format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
+    format_number.set_border()
+
+    format_nodecimal = workbook.add_format({'num_format': '0', 'align': 'center', 'valign': 'vcenter'})
+    format_nodecimal.set_border()
+
+    format_percentage = workbook.add_format({'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter'})
+    format_percentage.set_border()
+
+    format_percentage_good = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6EFCE',
+         'font_color': '#006100'})
+    format_percentage_good.set_border()
+    format_percentage_mid = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFEB9C',
+         'font_color': '#9C5700'})
+    format_percentage_mid.set_border()
+    format_percentage_bad = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC7CE',
+         'font_color': '#9C0006'})
+    format_percentage_bad.set_border()
+
+    # Format strings
+    format_string = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string.set_border()
+
+    format_string_wrapped = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string_wrapped.set_text_wrap()
+    format_string_wrapped.set_border()
+
+    format_string_unlocked = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'locked': False})
+    unlocked = workbook.add_format({'locked': False})
+    format_string_unlocked.set_border()
+
+    format_string_bold = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold.set_bold()
+    format_string_bold.set_border()
+
+    format_string_bold_wrapped = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold_wrapped.set_bold()
+    format_string_bold_wrapped.set_border()
+    format_string_bold_wrapped.set_text_wrap()
+
+    format_first_column = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
+    format_first_column.set_bold()
+    format_first_column.set_border()
+
+    format_blank = workbook.add_format({'valign': 'vcenter'})
+    format_blank.set_align('right')
+    format_blank.set_border()
+
+    # </editor-fold>
+
+    # Add summary df
+    sheet_summary = "KPIs Summary"
+    df_site.to_excel(writer, sheet_name=sheet_summary)
+
+    for key in site_incidents_list_period.keys():
+
+        df_site = site_incidents_list_period[key].drop(
+            labels=["Rounded Event Start Time", "Rounded Event End Time", "Rounded Exclusion Start Time",
+                    "Rounded Exclusion End Time"], axis=1)
+
+        sheet_incidents = key.replace(site, "") + " events"
+
+        # Add incidents df
+        ws_sheet = workbook.add_worksheet(sheet_incidents)
+
+        width = get_col_widths(df_site)
+
+        for i in range(len(df_site.columns)):
+            header = df_site.columns[i]
+            # print(header)
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
+            header_cell = column_letter + '1'
+            data_cell = column_letter + '2'
+            all_column = column_letter + ':' + column_letter
+            data = df_site[header].fillna("").reset_index(drop=True)
+
+            if header == 'ID':
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_first_column)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+            elif "Time" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                if "Exclusion" in header:
+                    for i in range(len(data)):
+                        data_cell = column_letter + str(i + 2)
+                        if pd.isnull(data[i]):
+                            ws_sheet.write_blank(data_cell, None, format_blank)
+                        else:
+                            ws_sheet.write(data_cell, data[i], format_day_hour)
+                else:
+                    ws_sheet.write_column(data_cell, data, format_day_hour)
+                ws_sheet.set_column(all_column, 19)
+
+            elif "Capacity" in header or "(" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_number)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+
+            elif header == "Incident Status":
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                ws_sheet.set_column(all_column, width[i + 1], unlocked)
+
+            elif header == "Categorization Status":
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                ws_sheet.set_column(all_column, width[i + 1], unlocked)
+
+
+            elif header == 'Remediation' or header == 'Comments':
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string_wrapped)
+                ws_sheet.set_column(all_column, 80)
+
+
+            else:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_string)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+    writer.close()
+
+    writer.handles = None
+
+    print('Done')
+
+    return
+
+def create_contractual_summary_file(geography_folder, om, df_kpis, all_sites_kpis, date_cutoff):
+    dest_file  = geography_folder + '/Event Tracker/Events by O&M provider/' + om + '/Exclusion Summary Results_' + str(date_cutoff) + '.xlsx'
+    writer = pd.ExcelWriter(dest_file, engine='xlsxwriter', engine_kwargs={'options': {'nan_inf_to_errors': True}})
+    workbook = writer.book
+
+    # <editor-fold desc="Formats">
+    # Format column header
+    format_darkblue_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#002060', 'font_color': '#FFFFFF'})
+    format_darkblue_white.set_bold()
+    format_darkblue_white.set_text_wrap()
+
+    format_lightblue_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#DCE6F1', 'font_color': '#000000'})
+    format_lightblue_black.set_bold()
+    format_lightblue_black.set_text_wrap()
+    format_lightblue_black.set_border()
+
+    format_header = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#D9D9D9', 'font_color': '#000000'})
+    format_header.set_bold()
+    format_header.set_text_wrap()
+
+    format_all_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFFFFF', 'font_color': '#FFFFFF'})
+    format_all_black = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#000000'})
+    format_black_on_white = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#000000', 'font_color': '#FFFFFF'})
+
+    # Format of specific column data
+    format_day_data = workbook.add_format({'num_format': 'dd/mm/yyyy', 'valign': 'vcenter'})
+    format_day_data.set_align('right')
+    format_day_data.set_border()
+
+    format_hour_data = workbook.add_format({'num_format': 'hh:mm:ss', 'valign': 'vcenter'})
+    format_hour_data.set_align('right')
+    format_hour_data.set_border()
+
+    format_day_hour = workbook.add_format({'num_format': 'dd/mm/yyyy hh:mm:ss', 'valign': 'vcenter'})
+    format_day_hour.set_align('right')
+    format_day_hour.set_border()
+
+    # Format numbers
+    format_number = workbook.add_format({'num_format': '#,##0.00', 'align': 'center', 'valign': 'vcenter'})
+    format_number.set_border()
+
+    format_nodecimal = workbook.add_format({'num_format': '0', 'align': 'center', 'valign': 'vcenter'})
+    format_nodecimal.set_border()
+
+    format_percentage = workbook.add_format({'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter'})
+    format_percentage.set_border()
+
+    format_percentage_good = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#C6EFCE',
+         'font_color': '#006100'})
+    format_percentage_good.set_border()
+    format_percentage_mid = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFEB9C',
+         'font_color': '#9C5700'})
+    format_percentage_mid.set_border()
+    format_percentage_bad = workbook.add_format(
+        {'num_format': '0.00%', 'align': 'center', 'valign': 'vcenter', 'bg_color': '#FFC7CE',
+         'font_color': '#9C0006'})
+    format_percentage_bad.set_border()
+
+    # Format strings
+    format_string = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string.set_border()
+
+    format_string_wrapped = workbook.add_format({'align': 'left', 'valign': 'vcenter'})
+    format_string_wrapped.set_text_wrap()
+    format_string_wrapped.set_border()
+
+    format_string_unlocked = workbook.add_format({'align': 'left', 'valign': 'vcenter', 'locked': False})
+    unlocked = workbook.add_format({'locked': False})
+    format_string_unlocked.set_border()
+
+    format_string_bold = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold.set_bold()
+    format_string_bold.set_border()
+
+    format_string_bold_wrapped = workbook.add_format({'align': 'right', 'valign': 'vcenter'})
+    format_string_bold_wrapped.set_bold()
+    format_string_bold_wrapped.set_border()
+    format_string_bold_wrapped.set_text_wrap()
+
+    format_first_column = workbook.add_format(
+        {'align': 'center', 'valign': 'vcenter', 'bg_color': '#F2F2F2', 'font_color': '#000000'})
+    format_first_column.set_bold()
+    format_first_column.set_border()
+
+    format_blank = workbook.add_format({'valign': 'vcenter'})
+    format_blank.set_align('right')
+    format_blank.set_border()
+
+    # </editor-fold>
+
+    # <editor-fold desc="Summary tab">
+
+    ws_sheet = workbook.add_worksheet("O&M KPIs by site")
+
+    width = get_col_widths(df_kpis)
+
+    ws_sheet.write("A1", "Site", format_header)
+    ws_sheet.write_column("A2", df_kpis.index, format_first_column)
+    ws_sheet.set_column("A:A", 25)
+
+    for i in range(len(df_kpis.columns)):
+        header = df_kpis.columns[i]
+        # print(header)
+        column_letter = openpyxl.utils.cell.get_column_letter(i + 2)
+        header_cell = column_letter + '1'
+        data_cell = column_letter + '2'
+        all_column = column_letter + ':' + column_letter
+        data = df_kpis[header].fillna("").reset_index(drop=True)
+
+        if 'Availability' in header or "TBA" in header:
+            ws_sheet.write(header_cell, header, format_header)
+            ws_sheet.write_column(data_cell, data, format_percentage)
+            ws_sheet.set_column(all_column, width[i + 1])
+
+        else:
+            ws_sheet.write(header_cell, header, format_header)
+            ws_sheet.write_column(data_cell, data, format_number)
+            ws_sheet.set_column(all_column, width[i + 1])
+
+    # </editor-fold>
+
+    for site in df_kpis.index:
+
+        site_kpis = all_sites_kpis[site]
+
+        sheet_incidents = site.replace("LSBP - ", "") + " Monthly KPIs"
+
+        # Add incidents df
+        ws_sheet = workbook.add_worksheet(sheet_incidents)
+        width = get_col_widths(site_kpis)
+
+        ws_sheet.write("A1", "Site", format_header)
+        ws_sheet.write_column("A2", site_kpis.index, format_first_column)
+        ws_sheet.set_column("A:A", width[i + 1])
+
+        for i in range(len(site_kpis.columns)):
+            header = site_kpis.columns[i]
+            # print(header)
+            column_letter = openpyxl.utils.cell.get_column_letter(i + 2)
+            header_cell = column_letter + '1'
+            data_cell = column_letter + '2'
+            all_column = column_letter + ':' + column_letter
+            data = site_kpis[header].fillna("").reset_index(drop=True)
+
+            if 'Availability' in header or "TBA" in header:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_percentage)
+                ws_sheet.set_column(all_column, width[i + 1])
+
+            else:
+                ws_sheet.write(header_cell, header, format_header)
+                ws_sheet.write_column(data_cell, data, format_number)
+                ws_sheet.set_column(all_column, width[i + 1])
 
     writer.close()
 
