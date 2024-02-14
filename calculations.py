@@ -123,6 +123,11 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                                      granularity: float = 0.25):
 
     if active_events:
+        try:
+            end_time_df = df_all_irradiance.index[-1]
+        except IndexError:
+            print("No irradiance data")
+
         for index, row in df.iterrows():
             site = row['Site Name']
             incident_id = row['ID']
@@ -130,6 +135,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
             capacity = row['Capacity Related Component']
             real_event_start_time = row['Event Start Time']
             event_start_time = row['Rounded Event Start Time']
+
             budget_pr_site = budget_pr.loc[site, :]
 
             """if type(event_start_time) == str:
@@ -147,60 +153,69 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
 
                 df_corrected_irradiance_event = df_irradiance_site.loc[df_irradiance_site['Timestamp'] >= event_start_time]
 
-                # Get percentages of first timestamp to account for rounding
-                index_event_start_time = \
-                    df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_start_time].index.values[0]
+                if not df_corrected_irradiance_event.empty:
 
-                percentage_of_timestamp_start = data_treatment.get_percentage_of_timestamp(real_event_start_time,
-                                                                                           event_start_time)
+                    # Get percentages of first timestamp to account for rounding
+                    index_event_start_time = \
+                        df_irradiance_site.loc[df_irradiance_site['Timestamp'] == event_start_time].index.values[0]
 
-                actual_column, curated_column, data_gaps_proportion, poa_avg_column = \
-                    data_treatment.get_actual_irradiance_column(df_corrected_irradiance_event)
-                # print(actual_column)
+                    percentage_of_timestamp_start = data_treatment.get_percentage_of_timestamp(real_event_start_time,
+                                                                                               event_start_time)
 
-                if actual_column is None:
-                    print(component, ' on ', event_start_time, ': No irradiance available')
-                    continue
+                    actual_column, curated_column, data_gaps_proportion, poa_avg_column = \
+                        data_treatment.get_actual_irradiance_column(df_corrected_irradiance_event)
+                    # print(actual_column)
 
-                data_gaps_percentage = "{:.2%}".format(data_gaps_proportion)
-                print(incident_id, ' - Data Gaps percentage: ', data_gaps_percentage)
+                    if actual_column is None:
+                        print(component, ' on ', event_start_time, ': No irradiance available')
+                        continue
 
-                # Correct irradiance in first timestamp to account for rounding
-                df_corrected_irradiance_event.at[index_event_start_time, actual_column] = \
-                    percentage_of_timestamp_start * df_corrected_irradiance_event.loc[index_event_start_time, actual_column]
+                    data_gaps_percentage = "{:.2%}".format(data_gaps_proportion)
+                    print(incident_id, ' - Data Gaps percentage: ', data_gaps_percentage)
 
-                df_irradiance_event_activeperiods = df_corrected_irradiance_event.loc[df_corrected_irradiance_event[actual_column] > 50]
+                    # Correct irradiance in first timestamp to account for rounding
+                    df_corrected_irradiance_event.at[index_event_start_time, actual_column] = \
+                        percentage_of_timestamp_start * df_corrected_irradiance_event.loc[index_event_start_time, actual_column]
 
-                duration = df_corrected_irradiance_event.shape[0] * granularity
-                active_hours = df_irradiance_event_activeperiods.shape[0] * granularity
-                if site == component:
-                    df_export_site = df_all_export.loc[:,
-                                     df_all_export.columns.str.contains(site + '|Timestamp')]
-                    export_column = df_all_export.columns[df_all_export.columns.str.contains(site)].values[0]
+                    df_irradiance_event_activeperiods = df_corrected_irradiance_event.loc[df_corrected_irradiance_event[actual_column] > 50]
 
-                    df_export_event = df_export_site.loc[df_export_site['Timestamp'] >= event_start_time]
+                    duration = df_corrected_irradiance_event.shape[0] * granularity
+                    active_hours = df_irradiance_event_activeperiods.shape[0] * granularity
+                    if site == component:
+                        df_export_site = df_all_export.loc[:,
+                                         df_all_export.columns.str.contains(site + '|Timestamp')]
+                        export_column = df_all_export.columns[df_all_export.columns.str.contains(site)].values[0]
 
-                    df_export_event.at[index_event_start_time, export_column] = percentage_of_timestamp_start * \
-                                                                                df_export_event.loc[
-                                                                                    index_event_start_time, export_column]
+                        df_export_event = df_export_site.loc[df_export_site['Timestamp'] >= event_start_time]
 
-                    energy_produced = df_export_event[export_column].sum()
+                        df_export_event.at[index_event_start_time, export_column] = percentage_of_timestamp_start * \
+                                                                                    df_export_event.loc[
+                                                                                        index_event_start_time, export_column]
 
-                    energy_lost = (sum(
-                        [row_el[actual_column] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
-                         index_el, row_el in
-                         df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
+                        energy_produced = df_export_event[export_column].sum()
 
-                    energy_lost = (energy_lost - energy_produced)
+                        energy_lost = (sum(
+                            [row_el[actual_column] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
+                             index_el, row_el in
+                             df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
 
-                    if energy_lost < 0:
-                        energy_lost = 0
+                        energy_lost = (energy_lost - energy_produced)
+
+                        if energy_lost < 0:
+                            energy_lost = 0
+
+                    else:
+                        energy_lost = (sum(
+                            [row_el[actual_column] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
+                             index_el, row_el in
+                             df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
 
                 else:
-                    energy_lost = (sum(
-                        [row_el[actual_column] * budget_pr_site.loc[str(row_el['Timestamp'].date())[:-2] + "01"] for
-                         index_el, row_el in
-                         df_irradiance_event_activeperiods.iterrows()]) * capacity * granularity) / 1000
+                    duration = ((end_time_df - real_event_start_time).days * 24) + \
+                               ((end_time_df - real_event_start_time).seconds / 3600)
+                    active_hours = 0
+                    energy_lost = 0
+
 
             else:
                 data_gaps_percentage = "{:.2%}".format(corrected_incidents_dict[incident_id]['Data Gaps Proportion'])
