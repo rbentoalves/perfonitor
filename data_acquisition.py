@@ -434,13 +434,27 @@ def get_filename_folder():
 
 def read_irradiance_export(irradiance_file_path, export_file_path):
     
-    irradiance_df = pd.read_excel(irradiance_file_path, engine="openpyxl")
-    #irradiance_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in irradiance_df["Timestamp"]]
-    irradiance_df['Timestamp'] = pd.to_datetime(irradiance_df['Timestamp'])
+    try:
+        irradiance_df = pd.read_excel(irradiance_file_path, engine="openpyxl")
+        irradiance_df['Timestamp'] = pd.to_datetime(irradiance_df['Timestamp'])
+    except FileNotFoundError:
+        sg.popup("File not found: " , irradiance_file_path)
+        irradiance_file_path = inputs.input_file(os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop'), message = "Select irradiance file")
+        irradiance_df = pd.read_excel(irradiance_file_path, engine="openpyxl")
+        irradiance_df['Timestamp'] = pd.to_datetime(irradiance_df['Timestamp'])
 
-    export_df = pd.read_excel(export_file_path, engine="openpyxl")
-    #export_df["Timestamp"] = [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in export_df["Timestamp"]]
-    export_df['Timestamp'] = pd.to_datetime(export_df['Timestamp'])
+
+
+    try:
+        export_df = pd.read_excel(export_file_path, engine="openpyxl")
+        export_df['Timestamp'] = pd.to_datetime(export_df['Timestamp'])
+    except FileNotFoundError:
+        sg.popup("File not found: ", export_file_path)
+        export_file_path = inputs.input_file(os.path.join(os.path.join(os.environ['USERPROFILE']), 'Desktop'),
+                                                 message="Select export file")
+        export_df = pd.read_excel(export_file_path, engine="openpyxl")
+        export_df['Timestamp'] = pd.to_datetime(export_df['Timestamp'])
+
 
     return irradiance_df, export_df 
 

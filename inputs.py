@@ -39,12 +39,12 @@ def input_date(startend: str = "start"):
 
     return date
 
-def input_file(desktop_path):
+def input_file(desktop_path, message: str = "Select General Info file of geography"):
 
     # Create interface
     sg.theme('DarkAmber')  # Add a touch of color
     # All the stuff inside your window.
-    layout = [[sg.Text('Select "General Info" file of geography')],
+    layout = [[sg.Text(message)],
               [sg.FileBrowse(target='-FILE-', initial_folder = desktop_path),
                sg.In(key='-FILE-', text_color='black', size=(20, 1), enable_events=True, readonly=True, visible=True)],
               [sg.Button('Submit'), sg.Exit()]]
