@@ -571,10 +571,14 @@ def read_curtailment_dataframes(geography, geopgraphy_folder, site_selection, pe
                                         sheet_name=['Active Events', 'Closed Events'], engine='openpyxl')
 
     df_active_eventtracker = df_eventtracker_all['Active Events']
+    df_active_eventtracker["Event End Time"] = [date_end] * len(df_active_eventtracker["Event End Time"])
+
     df_closed_eventtracker = df_eventtracker_all['Closed Events']
 
     # Create all component incidents df
-    incidents = pd.concat([df_eventtracker_all['Active Events'], df_eventtracker_all['Closed Events']])
+    incidents = pd.concat([df_active_eventtracker.astype(df_closed_eventtracker.dtypes), df_closed_eventtracker], axis=0)
+    incidents = incidents.loc[~(incidents['Event Start Time'] >= date_end) & ~(incidents['Event End Time'] <= date_start)]
+    print(incidents)
 
     # </editor-fold>
 

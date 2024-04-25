@@ -1435,8 +1435,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
                                                                     "01 00:00:00", '%Y-%m-%d %H:%M:%S')],
                               (nominal_power -
                                np_incidents_site.loc[(np_incidents_site['Event Start Time'] <= timestamp) &
-                                                     ((np_incidents_site['Event End Time'] >= timestamp) | (
-                                                         np_incidents_site['Event End Time'].isna()))][
+                                                     ((np_incidents_site['Event End Time'] >= timestamp))][
                                    'Capacity Related Component'].sum()) / nominal_power] for timestamp in
                              power_irradiance_site['Timestamp']]
 
@@ -1449,6 +1448,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
                         power_irradiance_site['Expected Power'] = [
                             (nominal_power * row["Budget PR"] * row[irradiance_column] / 1000) for index, row in
                             power_irradiance_site.iterrows()]
+
                         power_irradiance_site['Corrected Expected Power'] = [
                             (nominal_power * row["Budget PR"] * row['Available Capacity'] * row[
                                 irradiance_column] / 1000)
@@ -1480,7 +1480,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
                                                                                 (power_irradiance_site[
                                                                                      power_column] <= 0) &
                                                                                 (power_irradiance_site[
-                                                                                     irradiance_column] > 20)][
+                                                                                     irradiance_column] > irradiance_threshold)][
                                                                                 power_column].count() / 60
 
             curtailment_inc_df["Month"] = [timestamp.strftime("%Y-%m")
