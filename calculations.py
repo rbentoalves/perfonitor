@@ -1412,7 +1412,7 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
                             irradiance_site_curated['Timestamp'] >= stime)]
 
                     power_irradiance_site = pd.merge_asof(slice_irradiance_df_site, slice_power_df_site, on='Timestamp')
-                    print(power_irradiance_site.columns)
+                    power_irradiance_site = power_irradiance_site.loc[power_irradiance_site[irradiance_column] > irradiance_threshold]
 
                     irradiance_column = list(power_irradiance_site.columns[tuple([power_irradiance_site.columns.str.
                                                                                  contains('Irradiance')])])[0]
