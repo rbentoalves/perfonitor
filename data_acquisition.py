@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime
-import perfonitor.inputs as inputs
-import perfonitor.data_treatment as data_treatment
+import inputs as inputs
+import data_treatment as data_treatment
 import re
 import os
 import PySimpleGUI as sg

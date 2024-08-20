@@ -1,5 +1,4 @@
 import pandas as pd
-from append_df_to_excel import append_df_to_excel
 from datetime import datetime
 import datetime as dt
 import os
@@ -8,11 +7,11 @@ import sys
 import PySimpleGUI as sg
 import openpyxl
 import xlsxwriter
-import perfonitor.calculations as calculations
-import perfonitor.data_acquisition as data_acquisition
-import perfonitor.inputs as inputs
-import perfonitor.data_treatment as data_treatment
-import perfonitor.data_analysis as data_analysis
+import calculations as calculations
+import data_acquisition as data_acquisition
+import inputs as inputs
+import data_treatment as data_treatment
+import data_analysis as data_analysis
 
 
 # File creation/edit/removal-------------------------------------------------------------------------------------
@@ -111,50 +110,6 @@ def add_tracker_incidents_to_excel(dest_tracker_file, df_tracker_active, df_trac
     # </editor-fold>
 
     writer.close()
-
-    return
-
-
-def add_events_to_final_report(reportfile_path, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed):
-    final_active_events_list = pd.concat(list(df_list_active.values()))
-    final_closed_events_list = pd.concat(list(df_list_closed.values()))
-
-    if not final_active_events_list.empty:
-        append_df_to_excel(reportfile_path, final_active_events_list, sheet_name='Active Events', startrow=0)
-        print('Active events added')
-    else:
-        print('No active events to be added')
-
-    if not final_closed_events_list.empty:
-        append_df_to_excel(reportfile_path, final_closed_events_list, sheet_name='Closed Events', startrow=0)
-        print('Closed events added')
-    else:
-        print('No closed events to be added')
-
-    if not df_tracker_active.empty:
-        append_df_to_excel(reportfile_path, df_tracker_active, sheet_name='Active tracker incidents', startrow=0)
-        print('Tracker active events added')
-    else:
-        print('No tracker active events to be added')
-
-    if not df_tracker_closed.empty:
-        append_df_to_excel(reportfile_path, df_tracker_closed, sheet_name='Closed tracker incidents', startrow=0)
-        print('Tracker closed events added')
-    else:
-        print('No tracker closed events to be added')
-
-    return
-
-
-def add_analysis_to_reportfile(reportfile, df_incidents_analysis, df_tracker_analysis, df_info_sunlight):
-    # Add Info sheet
-    append_df_to_excel(reportfile, df_info_sunlight, sheet_name='Info', startrow=0)
-
-    # Add component failure analysis
-    append_df_to_excel(reportfile, df_incidents_analysis, sheet_name='Analysis of CE', startrow=0)
-
-    # Add component failure analysis
-    append_df_to_excel(reportfile, df_tracker_analysis, sheet_name='Analysis of tracker incidents', startrow=0)
 
     return
 
@@ -355,64 +310,7 @@ def dmrprocess1(site_selection: list = []):
     return
 
 
-def dmrprocess2(incidents_file="No File", tracker_incidents_file="No File",
-                site_list=["No site list"], geography="PT", date="27-03-1996"):
-    sg.theme('DarkAmber')  # Add a touch of color
-    if incidents_file == "No File" or tracker_incidents_file == "No File":
-        sg.popup('No files or site list available, please select them', no_titlebar=True)
-        incidents_file, tracker_incidents_file, site_list, geography, date = inputs.choose_incidents_files()
-        if incidents_file == "No File" or tracker_incidents_file == "No File":
-            return None
-    else:
-        print("Incidents file: " + incidents_file + "\nTracker Incidents file: " + tracker_incidents_file)
 
-    dir = os.path.dirname(incidents_file)
-    reportfiletemplate = dir + '/Info&Templates/Reporting_' + geography + '_Sites_' + 'Template.xlsx'
-    general_info_path = dir + '/Info&Templates/General Info ' + geography + '.xlsx'
-
-    # Reset Report Template to create new report
-    reportfile_path = data_treatment.reset_final_report(reportfiletemplate, date, geography)
-
-    # Read Active and Closed Events
-    df_list_active, df_list_closed = data_acquisition.read_approved_incidents(incidents_file, site_list, roundto=1)
-    df_tracker_active, df_tracker_closed = data_acquisition.read_approved_tracker_inc(tracker_incidents_file, roundto=1)
-
-    # Read sunrise and sunset hours
-    df_info_sunlight = pd.read_excel(incidents_file, sheet_name='Info', engine="openpyxl")
-    df_info_sunlight['Time of operation start'] = df_info_sunlight['Time of operation start'].dt.round(freq='s')
-    df_info_sunlight['Time of operation end'] = df_info_sunlight['Time of operation end'].dt.round(freq='s')
-
-    # Describe Incidents
-    df_list_active = data_treatment.describe_incidents(df_list_active, df_info_sunlight, active_events=True,
-                                                       tracker=False)
-    df_list_closed = data_treatment.describe_incidents(df_list_closed, df_info_sunlight, active_events=False,
-                                                       tracker=False)
-    df_tracker_active = data_treatment.describe_incidents(df_tracker_active, df_info_sunlight, active_events=True,
-                                                          tracker=True)
-    df_tracker_closed = data_treatment.describe_incidents(df_tracker_closed, df_info_sunlight, active_events=False,
-                                                          tracker=True)
-    print(df_tracker_closed.columns)
-
-    # Add Events to Report File
-    add_events_to_final_report(reportfile_path, df_list_active, df_list_closed, df_tracker_active, df_tracker_closed)
-
-    # -------------------------------Analysis on Components Failures---------------------------------
-    # Read and update the timestamps on the analysis dataframes
-    df_incidents_analysis, df_tracker_analysis = data_treatment.read_analysis_df_and_correct_date(reportfiletemplate,
-                                                                                                  date, roundto=1)
-    # Analysis of components failures
-    df_incidents_analysis_final = data_analysis.analysis_component_incidents(
-        df_incidents_analysis, site_list, df_list_closed, df_list_active, df_info_sunlight)
-
-    # Analysis of tracker failures
-    df_tracker_analysis_final = data_analysis.analysis_tracker_incidents(
-        df_tracker_analysis, df_tracker_closed, df_tracker_active, df_info_sunlight)
-
-    # Add Analysis to excel file
-    add_analysis_to_reportfile(reportfile_path, df_incidents_analysis_final, df_tracker_analysis_final,
-                               df_info_sunlight)
-
-    return reportfile_path
 
 
 def dmrprocess2_new(incidents_file="No File", tracker_incidents_file="No File", site_list=["No site list"],

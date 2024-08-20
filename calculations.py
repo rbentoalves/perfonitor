@@ -1,9 +1,9 @@
 import re
 import pandas as pd
-import perfonitor.data_treatment as data_treatment
-import perfonitor.data_acquisition as data_acquisition
-import perfonitor.inputs as inputs
-import perfonitor.contractual as contractual
+import data_treatment as data_treatment
+import data_acquisition as data_acquisition
+import inputs as inputs
+import contractual as contractual
 import calendar
 from datetime import datetime
 import timeit

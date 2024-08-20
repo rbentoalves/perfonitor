@@ -1,12 +1,10 @@
 import os
-import perfonitor.calculations as calculations
-import perfonitor.data_acquisition as data_acquisition
-import perfonitor.data_treatment as data_treatment
-import perfonitor.file_creation as file_creation
-# import perfonitor.inputs as inputs
-import monitools.windows as windows
+import calculations as calculations
+import data_acquisition as data_acquisition
+import data_treatment as data_treatment
+import file_creation as file_creation
+import windows as windows
 import re
-import perfonitor.visuals as visuals
 from datetime import datetime
 import datetime as dt
 import PySimpleGUI as sg

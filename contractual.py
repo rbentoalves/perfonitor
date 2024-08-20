@@ -1,20 +1,8 @@
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
-import numpy as np
-from datetime import datetime
 import datetime as dt
-from openpyxl import Workbook
-import openpyxl
-import re
-import os
-import PySimpleGUI as sg
-import xlwings as xlw
-import xlsxwriter as xlw
 import statistics
-import sys
-import IPython
 import math
-import calendar
 
 
 def calculate_top40_energylost(start_time, end_time, r_start_time, r_end_time, power_inverters_incident,
