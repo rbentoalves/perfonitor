@@ -4,7 +4,8 @@ import inputs as inputs
 import data_treatment as data_treatment
 import re
 import os
-import PySimpleGUI as sg
+## import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import statistics
 
 

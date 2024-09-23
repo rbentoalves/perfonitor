@@ -1,7 +1,8 @@
 import pandas as pd
 from datetime import datetime
 import re
-import PySimpleGUI as sg
+## import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import math
 import inputs as inputs
 import os
