@@ -598,8 +598,8 @@ def activehours_energylost_tracker(df, df_all_irradiance, df_all_export, budget_
                            ((real_event_end_time - real_event_start_time).seconds / 3600)
 
                 active_timestamps = df_irradiance_event_activeperiods.shape[0]
-                print("All timestamps: ", str(df_irradiance_event.shape[0]))
-                print("Active timestamps: ", str(active_timestamps))
+                #print("All timestamps: ", str(df_irradiance_event.shape[0]))
+                #print("Active timestamps: ", str(active_timestamps))
 
                 if active_timestamps == 0:
                     active_hours = 0
@@ -635,7 +635,7 @@ def active_hours_and_energy_lost_all_dfs(final_df_to_add, corrected_incidents_di
                                          irradiance_threshold: int = 50, timestamp: int = 15,
                                          recalculate_value: bool = False):
     granularity = timestamp / 60
-    tic = timeit.default_timer()
+    #tic = timeit.default_timer()
     for key, df in final_df_to_add.items():
 
         if "Active" in key:
@@ -677,8 +677,8 @@ def active_hours_and_energy_lost_all_dfs(final_df_to_add, corrected_incidents_di
         else:
             continue
 
-    toc = timeit.default_timer()
-    print(toc - tic)
+    #toc = timeit.default_timer()
+    #print(toc - tic)
 
     return final_df_to_add
 

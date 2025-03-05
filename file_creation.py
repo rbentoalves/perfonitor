@@ -1947,6 +1947,12 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                         #  {'validate': 'list',
                         #   'source': ['OMC', 'Force Majeure', 'Curtailment', "N/A"]})
 
+                    elif 'Fault Code' in header:
+                        ws_sheet.write(header_cell, header, format_header)
+                        ws_sheet.write_column(data_cell, data, format_string_unlocked)
+                        ws_sheet.set_column(all_column, width[i + 1], unlocked)
+
+
                     else:
                         fmeca_column_match = openpyxl.utils.cell.get_column_letter(fmeca_columns.index(header) + 1)
                         ws_sheet.write(header_cell, header, format_header)

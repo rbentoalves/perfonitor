@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-dmr_file_creation
       <module fileurl="file://$PROJECT_DIR$/../monitools/.idea/monitools.iml" filepath="$PROJECT_DIR$/../monitools/.idea/monitools.iml" />
-main
+      <module fileurl="file://$PROJECT_DIR$/../on_monitools/.idea/on_monitools.iml" filepath="$PROJECT_DIR$/../on_monitools/.idea/on_monitools.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/perfonitor.iml" filepath="$PROJECT_DIR$/.idea/perfonitor.iml" />
     </modules>
   </component>

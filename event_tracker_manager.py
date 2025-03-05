@@ -42,7 +42,7 @@ def main(site_list, pre_selection, geography):
             # <editor-fold desc="Get inputs, files necessary to analysis">
             # Get input of critical information for update, dates and file locations
             source_folder, source, geography, geography_folder, dest_file, folder_img, recalculate_value \
-                = windows.new_event_tracker()
+                = windows.event_tracker()
 
             if source_folder == "None":
                 continue

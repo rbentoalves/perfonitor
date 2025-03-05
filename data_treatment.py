@@ -32,7 +32,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                              (incidents['Energy Lost (MWh)'].isna())]
 
         n_inc_2 = incidents_to_correct.shape[0]
-        print('No recalculation, analysing overlappers on ', n_inc_2, ' from a total of ', n_inc_1, ' incidents.')
+        #print('No recalculation, analysing overlappers on ', n_inc_2, ' from a total of ', n_inc_1, ' incidents.')
 
     for index, row in incidents_to_correct.iterrows():
 
@@ -71,7 +71,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                 # In active events, end time of incident is the latest record of irradiance
                 effective_end_time_incident = datetime.strptime(str(df_irradiance_site['Timestamp'].to_list()[-1]),
                                                                 '%Y-%m-%d %H:%M:%S')
-                print("Active incident, effective end time: " + str(effective_end_time_incident))
+                #print("Active incident, effective end time: " + str(effective_end_time_incident))
                 closed_event = False
 
             else:
@@ -79,14 +79,14 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                 closed_event = True
                 effective_start_time_incident = row['Event Start Time']
                 effective_end_time_incident = row['Event End Time']
-                print("Closed incident")
+                #print("Closed incident")
 
         except TypeError:
             # Closed Events
             closed_event = True
             effective_start_time_incident = row['Event Start Time']
             effective_end_time_incident = row['Event End Time']
-            print("Closed incident")
+            #print("Closed incident")
 
         finally:
             if len(parents) == 0:
@@ -139,7 +139,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                             rpi_actual_start_time = row_rpi['Event Start Time']
 
                             if not pd.isnull(row_rpi["Event End Time"]):
-                                print("End time not null: " + str(row_rpi["Event End Time"]))
+                                #print("End time not null: " + str(row_rpi["Event End Time"]))
                                 try:
                                     rpi_end_time = \
                                         pd.Series(row_rpi['Event End Time']).dt.round(granularity_str, 'shift_forward')[
@@ -151,16 +151,16 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                     rpi_end_time = effective_end_time_incident
                                     rpi_actual_end_time = effective_end_time_incident
                             else:
-                                print("End time null: " + str(row_rpi["Event End Time"]))
+                                #print("End time null: " + str(row_rpi["Event End Time"]))
                                 rpi_end_time = effective_end_time_incident
                                 rpi_actual_end_time = effective_end_time_incident
-                                print("New End time: " + str(effective_end_time_incident))
+                                #print("New End time: " + str(effective_end_time_incident))
 
                             actual_timestamp_range = list(pd.date_range(start=rpi_start_time,
                                                                         end=rpi_end_time, freq='1min'))
 
                             if row_rpi["Failure Mode"] == "Curtailment":
-                                print("Correcting for curtailment")
+                                #print("Correcting for curtailment")
                                 #print(type(rpi_actual_end_time))
                                 #print(type(rpi_actual_start_time))
 
@@ -173,13 +173,13 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                                 # incident so energy loss needs to be calculated at this incident
                                 # level
 
-                                if len(timestamp_range) > 0:
+                                '''if len(timestamp_range) > 0:
                                     print("Between: " + str(timestamp_range[0]) + " and " + str(timestamp_range[-1]))
                                 else:
-                                    print("No correction needed")
+                                    print("No correction needed")'''
 
                             else:
-                                print("Correcting for non-curtailment")
+                                #print("Correcting for non-curtailment")
                                 timestamp_range = timestamp_range_eloss = list(pd.date_range(start=rpi_start_time,
                                                                                              end=rpi_end_time,
                                                                                              freq='15min'))
@@ -1109,13 +1109,13 @@ def describe_incidents(df, df_info_sunlight, active_events: bool = False, tracke
                     description = "• " + str(rel_comp) + ' started late at ~' + str(event_time) + ' (closed)'
 
                 elif start_date.day != end_date.day:
-                    description = "• " + str(rel_comp) + ' was ' + status.lower() + ' from' + start_date_short + \
-                                  'until ' + end_date_short + ' at ~' + str(event_time) + ' (' + \
-                                  "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
+                    description = "• " + str(rel_comp) + ' was ' + status.lower() + ' from ' + start_date_short + \
+                                  ' until ' + end_date_short + ' at ~' + str(event_time) + ' (' + \
+                                  "{:.2%}".format(cap_rel_comp/site_capacity) + ' of site capacity affected)'
                 else:
                     description = "• " + str(rel_comp) + ' was ' + status.lower() + ' on the ' + str(start_date.day)\
                                   + ' for ~' + str(duration) + ' hours (' + \
-                                  "{:.2%}".format(cap_rel_comp/site_capacity) + 'of site capacity affected)'
+                                  "{:.2%}".format(cap_rel_comp/site_capacity) + ' of site capacity affected)'
 
                 df_events.loc[index, 'Comments'] = description
 
@@ -1239,11 +1239,11 @@ def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = Fal
                               simple_match: bool = False, tracker: bool = False):
     desired_columns_components = ["ID", "Site Name", "Related Component", "Capacity Related Component",
                                   "Component Status", "Event Start Time", "Event End Time", "Duration (h)",
-                                  "Active Hours (h)", "Energy Lost (MWh)", "Comments","Remediation", "Fault",
-                                  "Fault Component", "Failure Mode", "Failure Mechanism", "Category", "Subcategory",
-                                  "Resolution Category", "Excludable", "Exclusion Start Time", "Exclusion End Time",
-                                  "Excludable Category", "Exclusion Rationale", "Incident Status",
-                                  "Categorization Status"]
+                                  "Active Hours (h)", "Energy Lost (MWh)", "Comments","Remediation", 'Fault Code',
+                                  "Fault", "Fault Component", "Failure Mode", "Failure Mechanism",
+                                  "Category", "Subcategory","Resolution Category", "Excludable",
+                                  "Exclusion Start Time", "Exclusion End Time", "Excludable Category",
+                                  "Exclusion Rationale", "Incident Status", "Categorization Status"]
     if not df.empty:
         if simple_match is False:
             curtailment_fmeca = fmeca_data.loc[fmeca_data['Failure Mode'] == 'Curtailment']

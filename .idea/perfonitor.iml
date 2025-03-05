@@ -8,6 +8,7 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="monitools" />
+    <orderEntry type="module" module-name="on_monitools" />
   </component>
   <component name="PyDocumentationSettings">
     <option name="format" value="PLAIN" />
