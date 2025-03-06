@@ -148,8 +148,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
 
             # event_start_time = row['Event Start Time']
             if incident_id not in corrected_incidents_dict.keys():
-                df_irradiance_site = df_all_irradiance.loc[:,
-                                     df_all_irradiance.columns.str.contains(site + '|Timestamp')]
+                df_irradiance_site = df_all_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
 
                 df_corrected_irradiance_event = df_irradiance_site.loc[df_irradiance_site['Timestamp'] >= event_start_time]
 
@@ -182,8 +181,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                     duration = df_corrected_irradiance_event.shape[0] * granularity
                     active_hours = df_irradiance_event_activeperiods.shape[0] * granularity
                     if site == component:
-                        df_export_site = df_all_export.loc[:,
-                                         df_all_export.columns.str.contains(site + '|Timestamp')]
+                        df_export_site = df_all_export.filter(regex=f"Timestamp|\\[{site}\\].*")
                         export_column = df_all_export.columns[df_all_export.columns.str.contains(site)].values[0]
 
                         df_export_event = df_export_site.loc[df_export_site['Timestamp'] >= event_start_time]
@@ -275,8 +273,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
 
             if incident_id not in corrected_incidents_dict.keys():
                 print("\n" + incident_id)
-                df_irradiance_site = df_all_irradiance.loc[:,
-                                     df_all_irradiance.columns.str.contains(site + '|Timestamp')]
+                df_irradiance_site = df_all_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
 
                 #print(event_start_time)
                 #print(event_end_time)
@@ -358,8 +355,7 @@ def activehours_energylost_incidents(df, df_all_irradiance, df_all_export, budge
                         active_hours = df_irradiance_event_activeperiods["Percentage of timestamp"].sum() * granularity
 
                         if site == component:
-                            df_export_site = df_all_export.loc[:,
-                                             df_all_export.columns.str.contains(site + '|Timestamp')]
+                            df_export_site = df_all_export.filter(regex=f"Timestamp|\\[{site}\\].*")
                             export_column = df_all_export.columns[df_all_export.columns.str.contains(site)].values[0]
 
                             df_export_event = df_export_site.loc[
@@ -480,8 +476,7 @@ def activehours_energylost_tracker(df, df_all_irradiance, df_all_export, budget_
                 row['Event Start Time'] = real_event_start_time = datetime.strptime(str(event_start_time),
                                                                                     '%Y-%m-%d %H:%M:%S')"""
 
-            df_irradiance_site = df_all_irradiance.loc[:,
-                                 df_all_irradiance.columns.str.contains(site + '|Timestamp')]
+            df_irradiance_site = df_all_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
 
             df_irradiance_event = df_irradiance_site.loc[df_irradiance_site['Timestamp'] >= event_start_time]
 
@@ -541,8 +536,7 @@ def activehours_energylost_tracker(df, df_all_irradiance, df_all_export, budget_
             budget_pr_site = budget_pr.loc[site, :]
 
             print("\n" + str(incident_id))
-            df_irradiance_site = df_all_irradiance.loc[:,
-                                 df_all_irradiance.columns.str.contains(site + '|Timestamp')]
+            df_irradiance_site = df_all_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
 
             df_irradiance_event = df_irradiance_site.loc[
                 (df_irradiance_site['Timestamp'] >= event_start_time) & (
@@ -708,8 +702,8 @@ def calculate_availability_period(site, incidents, tracker_incidents, component_
     site_incidents = incidents.loc[incidents['Site Name'] == site]
     site_tracker_incidents = tracker_incidents.loc[tracker_incidents['Site Name'] == site]
     # Get site irradiance & export --------------------------------------------------------------------------------------------
-    df_irradiance_site = df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains(site + '|Timestamp')]
-    df_export_site = df_all_export.loc[:, df_all_export.columns.str.contains(site + '|Timestamp')]
+    df_irradiance_site = df_all_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
+    df_export_site = df_all_export.filter(regex=f"Timestamp|\\[{site}\\].*")
 
     # Get irradiance poa avg column and curated -----------------------------------------------------------------------
     actual_column, curated_column, data_gaps_proportion, poa_avg_column = \
@@ -1290,12 +1284,101 @@ def pr_in_period(incidents_period, availability_period, raw_availability_period,
 
 # <editor-fold desc="Curtailment and Clipping">
 
+def create_curtailment_incidents(site, all_site_info, df_irradiance, df_power, incidents, active_power_setpoint_df):
+    site_info = all_site_info.loc[site, :]
+    max_export_capacity = site_info['Maximum Export Capacity']
+
+    nominal_power = site_info['Nominal Power DC']
+
+    # Get curated site irradiance
+    irradiance_site = df_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
+    irradiance_site_curated = irradiance_site.loc[:, irradiance_site.columns.str.contains('curated|Timestamp')]
+
+    # Get site power
+    power_site = df_power.filter(regex=f"Timestamp|\\[{site}\\].*")
+
+    incidents_site = incidents.loc[incidents['Site Name'] == site].reset_index(None, drop=True)
+    np_incidents_site = incidents_site.loc[(incidents_site['Component Status'] == "Not Producing") & ~(
+            incidents_site['Failure Mode'] == "Curtailment")]
+
+    # break
+    # get incidents of curtailment for each site
+    site_max_active_power_setpoint = all_site_info.loc[site, "Maximum Export Capacity"]
+    """df_curtailment_events_site = active_power_setpoint_df.loc[:,
+                                 active_power_setpoint_df.columns.str.match(r"^\[" + site + "\b|Timestamp", na=False)].dropna().reset_index(drop=True)"""
+
+    df_curtailment_events_site = active_power_setpoint_df.filter(regex=f"Timestamp|\\[{site}\\].*").reset_index(drop=True)
+
+    print(df_curtailment_events_site)
+    print(active_power_setpoint_df.columns)
+    print(active_power_setpoint_df.filter(regex=f"Timestamp|\\[{site}\\].*"))
+    setpoint_column = df_curtailment_events_site.columns[1]
+    print(setpoint_column)
+
+    # <editor-fold desc="Get timestamps of curtailment events">
+    end_timestamps = df_curtailment_events_site.loc[
+        df_curtailment_events_site[setpoint_column] >= site_max_active_power_setpoint]
+    end_timestamps_index = list(end_timestamps.index)
+
+    start_timestamps_index = end_timestamps.index + 1
+    start_timestamps_index = list(start_timestamps_index.insert(0, 0))[:-1]
+
+    start_data = df_curtailment_events_site.iloc[start_timestamps_index, :]
+    # start_timestamps = list(start_data.index)
+    start_timestamps = list(start_data["Timestamp"])
+    setpoints = list(start_data[setpoint_column])
+
+    end_data = df_curtailment_events_site.iloc[end_timestamps_index, :]
+    end_timestamps = list(end_data["Timestamp"])
+    # </editor-fold>
+
+    # print(start_timestamps)
+
+    if len(start_timestamps) == 0:
+        curtailment_inc_df = irradiance_site_curated = power_site = np_incidents_site = pd.DataFrame()
+        nominal_power = False
+        return curtailment_inc_df, irradiance_site_curated, power_site, np_incidents_site, nominal_power
+    else:
+        data_for_df = {"Site Name": [site] * len(setpoints),
+                       "Related Component": [site] * len(setpoints),
+                       "Capacity Related Component": [nominal_power] * len(setpoints),
+                       "Component Status": ["Not Producing"] * len(setpoints),
+                       "Setpoint": setpoints,
+                       "Event Start Time": start_timestamps,
+                       "Event End Time": end_timestamps,
+                       "Rounded Event Start Time": pd.Series(
+                           [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
+                            start_timestamps]).dt.ceil("1min"),
+                       "Rounded Event End Time": pd.Series(
+                           [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
+                            end_timestamps]).dt.ceil("1min"),
+                       "Duration (h)": [0.0] * len(setpoints),
+                       "Active hours (h)": [0.0] * len(setpoints),
+                       "Expected Energy Loss (kWh)": [0.0] * len(setpoints),
+                       "Corrected Expected Energy Loss (kWh)": [0.0] * len(setpoints),
+                       "Comments": [str(site + " is curtailed at " + str(setpoint) + " kW") for setpoint in
+                                    setpoints]}
+
+        curtailment_inc_df = pd.DataFrame(data_for_df)
+        curtailment_inc_df["Curtailment Event"] = ["x"] * len(setpoints)
+        curtailment_inc_df = curtailment_inc_df.loc[curtailment_inc_df["Setpoint"] < site_max_active_power_setpoint]
+
+
+    return curtailment_inc_df, irradiance_site_curated, power_site, np_incidents_site, nominal_power
+
 def curtailment_classic(source_folder, geography, geography_folder, site_selection, period,
                         irradiance_threshold: int = 20):
 
-    df_irradiance, df_power, active_power_setpoint_df, component_data, tracker_data, fmeca_data, site_capacities, \
-    fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file = \
-        data_acquisition.read_curtailment_dataframes(geography, geography_folder, site_selection, period,
+    if geography == 'AUS':
+        (df_irradiance, df_power, active_power_setpoint_df, component_data, tracker_data, fmeca_data, site_capacities, \
+            fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file,
+         mlf_dlf_info) = data_acquisition.read_curtailment_dataframes(geography, geography_folder, site_selection,
+                                                                      period, irradiance_threshold)
+
+    else:
+        df_irradiance, df_power, active_power_setpoint_df, component_data, tracker_data, fmeca_data, site_capacities, \
+            fleet_capacity, budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file = \
+            data_acquisition.read_curtailment_dataframes(geography, geography_folder, site_selection, period,
                                                      irradiance_threshold)
 
     site_list_setpoint = list(set([re.search(r'\[.+\]', site).group().replace('[', "").replace(']', "") for site in
@@ -1315,79 +1398,15 @@ def curtailment_classic(source_folder, geography, geography_folder, site_selecti
     monthly_curtailment_by_site = {}
 
     for site in site_list:
-        site_info = all_site_info.loc[site, :]
-        max_export_capacity = site_info['Maximum Export Capacity']
 
-        nominal_power = site_info['Nominal Power DC']
+        curtailment_inc_df, irradiance_site_curated, power_site, np_incidents_site, nominal_power = (
+            create_curtailment_incidents(site, all_site_info, df_irradiance, df_power, incidents, active_power_setpoint_df))
 
-        # Get curated site irradiance
-        irradiance_site = df_irradiance.loc[:, df_irradiance.columns.str.contains(site + "|Timestamp")]
-        irradiance_site_curated = irradiance_site.loc[:, irradiance_site.columns.str.contains('curated|Timestamp')]
-
-        # Get site power
-        power_site = df_power.loc[:, df_power.columns.str.contains(site + "|Timestamp")]
-
-        incidents_site = incidents.loc[incidents['Site Name'] == site].reset_index(None, drop=True)
-        np_incidents_site = incidents_site.loc[(incidents_site['Component Status'] == "Not Producing") & ~(
-            incidents_site['Failure Mode'] == "Curtailment")]
-
-        # break
-        # get incidents of curtailment for each site
-        site_max_active_power_setpoint = all_site_info.loc[site, "Maximum Export Capacity"]
-        df_curtailment_events_site = active_power_setpoint_df.loc[:, active_power_setpoint_df.columns.str.contains(
-            site + "|Timestamp")].dropna().reset_index(drop=True)
-
-        setpoint_column = df_curtailment_events_site.columns[1]
-
-        print(df_curtailment_events_site)
-        print(setpoint_column)
-
-        # <editor-fold desc="Get timestamps of curtailment events">
-        end_timestamps = df_curtailment_events_site.loc[
-            df_curtailment_events_site[setpoint_column] >= site_max_active_power_setpoint]
-        end_timestamps_index = list(end_timestamps.index)
-
-        start_timestamps_index = end_timestamps.index + 1
-        start_timestamps_index = list(start_timestamps_index.insert(0, 0))[:-1]
-
-        start_data = df_curtailment_events_site.iloc[start_timestamps_index, :]
-        # start_timestamps = list(start_data.index)
-        start_timestamps = list(start_data["Timestamp"])
-        setpoints = list(start_data[setpoint_column])
-
-        end_data = df_curtailment_events_site.iloc[end_timestamps_index, :]
-        end_timestamps = list(end_data["Timestamp"])
-        # </editor-fold>
-
-        # print(start_timestamps)
-
-        if len(start_timestamps) == 0:
+        if curtailment_inc_df.empty:
+            print('There are no curtailment events for: ', site)
             pass
+
         else:
-            data_for_df = {"Site Name": [site] * len(setpoints),
-                           "Related Component": [site] * len(setpoints),
-                           "Capacity Related Component": [nominal_power] * len(setpoints),
-                           "Component Status": ["Not Producing"] * len(setpoints),
-                           "Setpoint": setpoints,
-                           "Event Start Time": start_timestamps,
-                           "Event End Time": end_timestamps,
-                           "Rounded Event Start Time": pd.Series(
-                               [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
-                                start_timestamps]).dt.ceil("1min"),
-                           "Rounded Event End Time": pd.Series(
-                               [datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S') for timestamp in
-                                end_timestamps]).dt.ceil("1min"),
-                           "Duration (h)": [0.0] * len(setpoints),
-                           "Active hours (h)": [0.0] * len(setpoints),
-                           "Expected Energy Loss (kWh)": [0.0] * len(setpoints),
-                           "Corrected Expected Energy Loss (kWh)": [0.0] * len(setpoints),
-                           "Comments": [str(site + " is curtailed at " + str(setpoint) + " kW") for setpoint in
-                                        setpoints]}
-
-            curtailment_inc_df = pd.DataFrame(data_for_df)
-            curtailment_inc_df["Curtailment Event"] = ["x"] * len(setpoints)
-            curtailment_inc_df = curtailment_inc_df.loc[curtailment_inc_df["Setpoint"] < site_max_active_power_setpoint]
-
             for index, row in curtailment_inc_df.iterrows():
                 stime = row['Rounded Event Start Time']
                 etime = row['Rounded Event End Time']
@@ -1546,11 +1565,11 @@ def clipping_classic(source_folder, geography, geography_folder, site_selection,
         start = time.time()
 
         # Get curated site irradiance
-        irradiance_site = df_irradiance.loc[:, df_irradiance.columns.str.contains(site + "|Timestamp")]
+        irradiance_site = df_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
         irradiance_site_curated = irradiance_site.loc[:, irradiance_site.columns.str.contains('curated|Timestamp')]
 
         # Get site power
-        power_site = df_power.loc[:, df_power.columns.str.contains(site + "|Timestamp")]
+        power_site = df_power.filter(regex=f"Timestamp|\\[{site}\\].*")
 
         # power_irradiance_site = pd.concat([irradiance_site_curated,power_site])
         power_irradiance_site = pd.merge_asof(irradiance_site_curated, power_site, on='Timestamp')
@@ -1671,10 +1690,10 @@ def contractual_calculation(source_folder, geography, geopgraphy_folder, site_se
         print(start_date)
         print(end_date)
 
-        df_export_site = df_all_export.loc[:, df_all_export.columns.str.contains(site + "|Timestamp")]
+        df_export_site = df_all_export.filter(regex=f"Timestamp|\\[{site}\\].*")
 
-        df_irradiance_site = df_all_irradiance.loc[:, df_all_irradiance.columns.str.contains(site + "|Timestamp")]
-        df_irradiance_site = df_irradiance_site.loc[:, df_irradiance_site.columns.str.contains('curated|Timestamp')]
+        df_irradiance_site = df_all_irradiance.filter(regex=f"Timestamp|\\[{site}\\].*")
+        df_irradiance_site = df_irradiance_site.columns.str.contains('curated|Timestamp')
 
         component_data_site = component_data.loc[component_data["Site"] == site]
 
@@ -1709,7 +1728,7 @@ def contractual_calculation(source_folder, geography, geopgraphy_folder, site_se
         print(contract_type)
 
         curated_column = production_irr_df.columns[production_irr_df.columns.str.contains('curated')][0]
-        export_column = production_irr_df.columns[production_irr_df.columns.str.contains(site)][0]
+        export_column = production_irr_df.columns[production_irr_df.columns.str.match(r"^\[?" + site + "\b", na=False)][0]
 
         site_kpis_df, site_incidents_per_period = contractual.contractual_availability_kpis(site, component_data_site,
                                                                                             all_site_info,budget_pr,

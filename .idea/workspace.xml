@@ -4,16 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Changed describing function to be more UPesque">
-      <change beforePath="$PROJECT_DIR$/../monitools/streamlit_mtmain.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/perfonitor.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/perfonitor.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/calculations.py" beforeDir="false" afterPath="$PROJECT_DIR$/calculations.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data_treatment.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_treatment.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/event_tracker_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/event_tracker_manager.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/file_creation.py" beforeDir="false" afterPath="$PROJECT_DIR$/file_creation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_acquisition.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_acquisition.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -239,7 +233,15 @@
       <option name="project" value="LOCAL" />
       <updated>1688646272987</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build">
+      <option name="closed" value="true" />
+      <created>1741177304257</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1741177304257</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -262,6 +264,7 @@
   <component name="VcsManagerConfiguration">
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="Changed describing function to be more UPesque" />
-    <option name="LAST_COMMIT_MESSAGE" value="Changed describing function to be more UPesque" />
+    <MESSAGE value="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build" />
+    <option name="LAST_COMMIT_MESSAGE" value="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build" />
   </component>
 </project>

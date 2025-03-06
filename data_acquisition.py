@@ -564,6 +564,7 @@ def read_curtailment_dataframes(geography, geopgraphy_folder, site_selection, pe
     component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, budget_pr, \
     budget_export, all_site_info = get_general_info_dataframes(general_info_path)
 
+
     # </editor-fold>
 
     # <editor-fold desc="Read Event Tracker incidents">
@@ -585,8 +586,13 @@ def read_curtailment_dataframes(geography, geopgraphy_folder, site_selection, pe
 
     print("Data acquisition complete")
 
-    return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
-           budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file
+    if geography == "AUS":
+        mlf_dlf_info = pd.read_excel(general_info_path, sheet_name='MLF_DLF', engine='openpyxl')
+        return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
+           budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, mlf_dlf_info
+    else:
+        return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
+            budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file
 
 def read_clipping_dataframes(geography, geopgraphy_folder, site_selection, period,
                                 irradiance_threshold: int = 20):
