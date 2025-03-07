@@ -4,7 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build">
+    <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Coorected curtailment events and added dropna() that was missing">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/calculations.py" beforeDir="false" afterPath="$PROJECT_DIR$/calculations.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_acquisition.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_acquisition.py" afterDir="false" />
@@ -241,7 +241,23 @@
       <option name="project" value="LOCAL" />
       <updated>1741177304257</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Corrected regex that IDs columns that contain site name, to avoid cases where the name of a site is part of another's name and thus both get picked up">
+      <option name="closed" value="true" />
+      <created>1741271846421</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1741271846421</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Coorected curtailment events and added dropna() that was missing">
+      <option name="closed" value="true" />
+      <created>1741283211289</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1741283211289</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -265,6 +281,8 @@
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="Changed describing function to be more UPesque" />
     <MESSAGE value="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build" />
-    <option name="LAST_COMMIT_MESSAGE" value="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build" />
+    <MESSAGE value="Corrected regex that IDs columns that contain site name, to avoid cases where the name of a site is part of another's name and thus both get picked up" />
+    <MESSAGE value="Coorected curtailment events and added dropna() that was missing" />
+    <option name="LAST_COMMIT_MESSAGE" value="Coorected curtailment events and added dropna() that was missing" />
   </component>
 </project>

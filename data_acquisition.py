@@ -587,12 +587,14 @@ def read_curtailment_dataframes(geography, geopgraphy_folder, site_selection, pe
     print("Data acquisition complete")
 
     if geography == "AUS":
-        mlf_dlf_info = pd.read_excel(general_info_path, sheet_name='MLF_DLF', engine='openpyxl')
-        return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
-           budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, mlf_dlf_info
+        mlf_dlf_info = pd.read_excel(general_info_path, sheet_name='MLF_DLF', engine='openpyxl').set_index('Site')
+        print(mlf_dlf_info)
+
     else:
-        return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
-            budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file
+        mlf_dlf_info = pd.DataFrame()
+
+    return df_irradiance_period, df_power_period, active_power_setpoint_period, component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, \
+        budget_irradiance, budget_pr, budget_export, all_site_info, incidents, dest_file, mlf_dlf_info
 
 def read_clipping_dataframes(geography, geopgraphy_folder, site_selection, period,
                                 irradiance_threshold: int = 20):
