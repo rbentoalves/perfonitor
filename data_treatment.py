@@ -132,7 +132,6 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                         print(relevant_parents_incidents[['Related Component', 'Event Start Time', 'Event End Time']])
 
                         for index_rpi, row_rpi in relevant_parents_incidents.iterrows():
-                            failure_mode = row_rpi["Failure Mode"]
 
                             rpi_start_time = \
                                 pd.Series(row_rpi['Event Start Time']).dt.round(granularity_str, 'shift_backward')[0]
@@ -159,7 +158,7 @@ def correct_incidents_irradiance_for_overlapping_parents(incidents, irradiance, 
                             actual_timestamp_range = list(pd.date_range(start=rpi_start_time,
                                                                         end=rpi_end_time, freq='1min'))
 
-                            if row_rpi["Failure Mode"] == "Curtailment":
+                            if row_rpi["Root Cause"] == "Curtailment":
                                 #print("Correcting for curtailment")
                                 #print(type(rpi_actual_end_time))
                                 #print(type(rpi_actual_start_time))
@@ -1158,95 +1157,69 @@ def create_fmeca_dataframes_for_validation(fmeca_data):
     # data validation for FMECA
 
     # next level is dependent on combination of previous levels
-    faults_fmeca = list(set(fmeca_data['Fault'].to_list()))
-    fault_component_fmeca = dict(
-        (fault, list(set(fmeca_data.loc[fmeca_data['Fault'] == fault]['Fault Component'].to_list()))) for fault in
-        faults_fmeca)
-    failure_mode_fmeca = dict(((fault, fault_comp), list(set(
-        fmeca_data.loc[(fmeca_data['Fault'] == fault) & (fmeca_data['Fault Component'] == fault_comp)][
-            'Failure Mode'].to_list()))) for fault, fault_comps in fault_component_fmeca.items() for fault_comp in
-                              fault_comps)
+    type_of_outage_fmeca = list(set(fmeca_data['Type of Outage'].to_list()))
+    fault_category_fmeca = dict(
+        (too, list(set(fmeca_data.loc[fmeca_data['Type of Outage'] == too]['Fault Category'].to_list()))) for too in
+        type_of_outage_fmeca)
+    root_cause_fmeca = dict(((too, fault_cat), list(set(
+        fmeca_data.loc[(fmeca_data['Type of Outage'] == too) & (fmeca_data['Fault Category'] == fault_cat)][
+            'Root Cause'].to_list()))) for too, fault_cats in fault_category_fmeca.items() for fault_cat in
+                              fault_cats)
 
-    failure_mechanism_fmeca = \
-        dict((fault_and_comp + (fail_mode,), list(set(fmeca_data.loc[(fmeca_data['Fault'] == fault_and_comp[0]) &
-                                                                     (fmeca_data['Fault Component'] ==
-                                                                      fault_and_comp[1])
-                                                                     & (fmeca_data['Failure Mode']
-                                                                        == fail_mode)]['Failure Mechanism'].to_list())))
-             for fault_and_comp, fail_modes in failure_mode_fmeca.items() for fail_mode in fail_modes)
-
-    category_fmeca = \
-        dict((fault_and_comp_mode + (fail_mec,),
-              list(set(fmeca_data.loc[(fmeca_data['Fault'] == fault_and_comp_mode[0]) &
-                                      (fmeca_data['Fault Component'] == fault_and_comp_mode[1]) &
-                                      (fmeca_data['Failure Mode'] == fault_and_comp_mode[2]) &
-                                      (fmeca_data['Failure Mechanism'] == fail_mec)]['Category'].to_list())))
-             for fault_and_comp_mode, fail_mecs in failure_mechanism_fmeca.items() for fail_mec in fail_mecs)
-
-    subcategory_fmeca = \
-        dict((fault_and_comp_mode_mec + (cat,),
-              list(set(fmeca_data.loc[(fmeca_data['Fault'] == fault_and_comp_mode_mec[0]) &
-                                      (fmeca_data['Fault Component'] == fault_and_comp_mode_mec[1]) &
-                                      (fmeca_data['Failure Mode'] == fault_and_comp_mode_mec[2]) &
-                                      (fmeca_data['Failure Mechanism'] == fault_and_comp_mode_mec[3]) &
-                                      (fmeca_data['Category'] == cat)]['Subcategory'].to_list())))
-             for fault_and_comp_mode_mec, cats in category_fmeca.items() for cat in cats)
+    root_cause_analysis_fmeca = \
+        dict((type_and_categ + (root_cause,), list(set(fmeca_data.loc[(fmeca_data['Type of Outage'] == type_and_categ[0]) &
+                                                                     (fmeca_data['Fault Category'] ==
+                                                                      type_and_categ[1])
+                                                                     & (fmeca_data['Root Cause']
+                                                                        == root_cause)]['Root Cause Analysis'].to_list())))
+             for type_and_categ, root_causes in root_cause_fmeca.items() for root_cause in root_causes)
 
     # Change multi-level options' keys to have all dependencies on key
-    fault_component_fmeca_newkeys = dict(
-        (key, key.replace(" ", "_").replace("-", "_")) for key in fault_component_fmeca.keys())
-    failure_mode_fmeca_newkeys = dict(
-        (key, "_".join(key).replace(" ", "_").replace("-", "_")) for key in failure_mode_fmeca.keys())
-    failure_mechanism_fmeca_newkeys = dict(
-        (key, "_".join(key).replace(" ", "_").replace("-", "_")) for key in failure_mechanism_fmeca.keys())
-    category_fmeca_newkeys = dict(
-        (key, "_".join(key).replace(" ", "_").replace("-", "_")) for key in category_fmeca.keys())
-    subcategory_fmeca_newkeys = dict(
-        (key, "_".join(key).replace(" ", "_").replace("-", "_")) for key in subcategory_fmeca.keys())
+    fault_category_fmeca_newkeys = dict(
+        (key, key.replace(" ", "_").replace("-", "_")) for key in fault_category_fmeca.keys())
+    root_cause_fmeca_newkeys = dict(
+        (key, "_".join(key).replace(" ", "_").replace("-", "_")) for key in root_cause_fmeca.keys())
+    root_cause_analysis_fmeca_newkeys = dict(
+        (key, "_".join(key).replace(" ", "_").replace("-", "_")) for key in root_cause_analysis_fmeca.keys())
 
-    fault_component_fmeca = rename_dict_keys(fault_component_fmeca,
-                                             fault_component_fmeca_newkeys)
 
-    failure_mode_fmeca = rename_dict_keys(failure_mode_fmeca, failure_mode_fmeca_newkeys)
+    fault_category_fmeca = rename_dict_keys(fault_category_fmeca,
+                                             fault_category_fmeca_newkeys)
 
-    failure_mechanism_fmeca = rename_dict_keys(failure_mechanism_fmeca,
-                                               failure_mechanism_fmeca_newkeys)
+    root_cause_fmeca = rename_dict_keys(root_cause_fmeca, root_cause_fmeca_newkeys)
 
-    category_fmeca = rename_dict_keys(category_fmeca, category_fmeca_newkeys)
+    root_cause_analysis_fmeca = rename_dict_keys(root_cause_analysis_fmeca,
+                                               root_cause_analysis_fmeca_newkeys)
 
-    subcategory_fmeca = rename_dict_keys(subcategory_fmeca, subcategory_fmeca_newkeys)
 
     # Create dfs
 
-    df_faults_fmeca = pd.DataFrame(data={'Faults': faults_fmeca})
-    df_fault_component_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in fault_component_fmeca.items()]))
-    df_failure_mode_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in failure_mode_fmeca.items()]))
-    df_failure_mechanism_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in failure_mechanism_fmeca.items()]))
-    df_category_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in category_fmeca.items()]))
-    df_subcategory_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in subcategory_fmeca.items()]))
+    df_type_of_outage_fmeca = pd.DataFrame(data={'Type_of_Outage': type_of_outage_fmeca})
+    df_fault_category_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in fault_category_fmeca.items()]))
+    df_root_cause_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in root_cause_fmeca.items()]))
+    df_rc_analysis_fmeca = pd.DataFrame(dict([(k, pd.Series(v)) for k, v in root_cause_analysis_fmeca.items()]))
 
-    dict_fmeca_shapes = {'Faults': (df_faults_fmeca, df_faults_fmeca.shape),
-                         'Failure_Component': (df_fault_component_fmeca, df_fault_component_fmeca.shape),
-                         'Failure_Mode': (df_failure_mode_fmeca, df_failure_mode_fmeca.shape),
-                         'Failure_Mechanism': (df_failure_mechanism_fmeca, df_failure_mechanism_fmeca.shape),
-                         'Category': (df_category_fmeca, df_category_fmeca.shape),
-                         'Subcategory': (df_subcategory_fmeca, df_subcategory_fmeca.shape)}
+
+    dict_fmeca_shapes = {'Type_of_Outage': (df_type_of_outage_fmeca, df_type_of_outage_fmeca.shape),
+                         'Fault_Category': (df_fault_category_fmeca, df_fault_category_fmeca.shape),
+                         'Root_Cause': (df_root_cause_fmeca, df_root_cause_fmeca.shape),
+                         'Root_Cause_Analysis': (df_rc_analysis_fmeca, df_rc_analysis_fmeca.shape)}
 
     return dict_fmeca_shapes
 
 
 def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = False,
                               simple_match: bool = False, tracker: bool = False):
-    desired_columns_components = ["ID", "Site Name", "Related Component", "Capacity Related Component",
-                                  "Component Status", "Event Start Time", "Event End Time", "Duration (h)",
-                                  "Active Hours (h)", "Energy Lost (MWh)", "Comments","Remediation", 'Fault Code',
-                                  "Fault", "Fault Component", "Failure Mode", "Failure Mechanism",
-                                  "Category", "Subcategory","Resolution Category", "Excludable",
-                                  "Exclusion Start Time", "Exclusion End Time", "Excludable Category",
-                                  "Exclusion Rationale", "Incident Status", "Categorization Status"]
+    desired_columns_components = ['ID',	'Site Name', 'Related Component', 'Capacity Related Component',
+                                  'Component Status', 'Event Start Time', 'Event End Time', 'Duration (h)',
+                                  'Active Hours (h)', 'Energy Lost (MWh)', 'Comments', 'Remediation', 'Fault Code',
+                                  'Work Order', 'Type of Outage', 'Fault Category',	'Root Cause', 'Root Cause Analysis',
+                                  'Resolution Category', 'Excludable', 'Exclusion Start Time', 'Exclusion End Time',
+                                  'Excludable Category','Exclusion Rationale', 'Incident Status',
+                                  'Categorization Status']
     if not df.empty:
         if simple_match is False:
-            curtailment_fmeca = fmeca_data.loc[fmeca_data['Failure Mode'] == 'Curtailment']
+            curtailment_fmeca = fmeca_data.loc[fmeca_data['Root Cause'] == 'Curtailment']
 
             df['Site Name'] = [correct_site_name(name) for name in df['Site Name']]
             df['Related Component'] = [correct_site_name(name)
@@ -1300,12 +1273,10 @@ def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = Fal
         if simple_match is False and tracker is False:
             try:
                 for index, row in df.loc[df['Curtailment Event'] == 'x'].iterrows():
-                    df.loc[index, 'Fault'] = curtailment_fmeca['Fault'].values[0]
-                    df.loc[index, 'Fault Component'] = curtailment_fmeca['Fault Component'].values[0]
-                    df.loc[index, 'Failure Mode'] = curtailment_fmeca['Failure Mode'].values[0]
-                    df.loc[index, 'Failure Mechanism'] = curtailment_fmeca['Failure Mechanism'].values[0]
-                    df.loc[index, 'Category'] = curtailment_fmeca['Category'].values[0]
-                    df.loc[index, 'Subcategory'] = curtailment_fmeca['Subcategory'].values[0]
+                    df.loc[index, 'Type of Outage'] = curtailment_fmeca['Type of Outage'].values[0]
+                    df.loc[index, 'Fault Category'] = curtailment_fmeca['Fault Category'].values[0]
+                    df.loc[index, 'Root Cause'] = curtailment_fmeca['Root Cause'].values[0]
+                    df.loc[index, 'Root Cause Analysis'] = curtailment_fmeca['Root Cause Analysis'].values[0]
                     df.loc[index, 'Resolution Category'] = "Reset"
                     df.loc[index, 'Excludable'] = "Yes"
                     df.loc[index, 'Excludable Category'] = "Curtailment"

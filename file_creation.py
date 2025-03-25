@@ -1842,6 +1842,8 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
     start_column_index = 1
     start_column = openpyxl.utils.cell.get_column_letter(1)
     dict_fmeca_table_range = {}
+    print(dict_fmeca_shapes)
+    print(dict_fmeca_shapes.items())
     for name, data in dict_fmeca_shapes.items():
         df = data[0]
         shape = data[1]
@@ -1881,7 +1883,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
     n_rows_fmeca = final_df_to_add['FMECA'].shape[0]
     n_columns_fmeca = final_df_to_add['FMECA'].shape[1]
     reference_column = openpyxl.utils.cell.get_column_letter(
-        final_df_to_add['FMECA'].columns.to_list().index('Fault') + 1)
+        final_df_to_add['FMECA'].columns.to_list().index('Type of Outage') + 1)
 
     for sheet in final_df_to_add.keys():
         print(sheet)
@@ -1897,6 +1899,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
         if "Closed" in sheet or "Active" in sheet:
             for i in range(len(df.columns)):
                 header = df.columns[i]
+                print(header)
                 column_letter = openpyxl.utils.cell.get_column_letter(i + 1)
                 header_cell = column_letter + '1'
                 data_cell = column_letter + '2'
@@ -1928,7 +1931,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                     ws_sheet.set_column(all_column, 12)
 
 
-                elif "Fa" in header or "ategory" in header or "Excludable" in header:
+                elif "Fa" in header or "ategory" in header or "Excludable" in header or "Type" in header or "Root" in header:
                     if header == "Resolution Category":
                         ws_sheet.write(header_cell, header, format_header)
                         ws_sheet.write_column(data_cell, data, format_string_unlocked)
@@ -1960,20 +1963,21 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                         ws_sheet.set_column(all_column, width[i + 1], unlocked)
 
                         # Add Data validation
-                        if header == 'Fault':
+                        if header == 'Type of Outage':
                             ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
                                                      {'validate': 'list',
-                                                      'source': '=FMECA_AUX!' + str(dict_fmeca_table_range['Faults'])})
+                                                      'source': '=FMECA_AUX!' + str(dict_fmeca_table_range['Type_of_Outage'])})
                             fault_cell = data_cell
+                            print(fault_cell)
 
-                        elif header == 'Fault Component':
+                        elif header == 'Fault Category':
                             ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
                                                      {'validate': 'list',
                                                       'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
                                                                 fault_cell + ', " ", "_"), "-","_"))'})
                             fcomp_cell = data_cell
 
-                        elif header == 'Failure Mode':
+                        elif header == 'Root Cause':
                             ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
                                                      {'validate': 'list',
                                                       'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
@@ -1981,7 +1985,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                                                                 fcomp_cell + '," ", "_"),"-","_"))'})
                             fmode_cell = data_cell
 
-                        elif header == 'Failure Mechanism':
+                        elif header == 'Root Cause Analysis':
                             ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
                                                      {'validate': 'list',
                                                       'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
@@ -1990,25 +1994,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                                                                 fmode_cell + ', " ", "_"), "-","_"))'})
                             fmec_cell = data_cell
 
-                        elif header == 'Category':
-                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
-                                                     {'validate': 'list',
-                                                      'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
-                                                                fault_cell + '&"_"&' +
-                                                                fcomp_cell + '&"_"&' +
-                                                                fmode_cell + '&"_"&' +
-                                                                fmec_cell + ', " ", "_"), "-","_"))'})
-                            cat_cell = data_cell
-                        elif header == 'Subcategory':
-                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
-                                                     {'validate': 'list',
-                                                      'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
-                                                                fault_cell + '&"_"&' +
-                                                                fcomp_cell + '&"_"&' +
-                                                                fmode_cell + '&"_"&' +
-                                                                fmec_cell + '&"_"&' +
-                                                                cat_cell + ', " ", "_"), "-","_"))'})
-                            subcat_cell = data_cell
+
 
                 elif header == "Incident Status":
                     ws_sheet.write(header_cell, header, format_header)

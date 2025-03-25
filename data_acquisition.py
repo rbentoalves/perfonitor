@@ -873,6 +873,10 @@ def get_general_info_dataframes(general_info_path):
         (all_component_data['Component Type'] == 'Tracker') | (all_component_data['Component Type'] == 'Tracker Group')]
     fmeca_data = pd.read_excel(general_info_path, sheet_name='FMECA', engine='openpyxl')
 
+    #Correct unnamed columns
+    fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
+    fmeca_data = fmeca_data.dropna(thresh=3)
+
     site_capacities = component_data.loc[component_data['Component Type'] == 'Site'][
         ['Component', 'Nominal Power DC']].set_index('Component')
     fleet_capacity = site_capacities['Nominal Power DC'].sum()
@@ -954,7 +958,7 @@ def get_dataframes_to_add_to_EventTracker(report_files,event_tracker_file_path, 
 
     # Correct any unnamed columns
     fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
-    fmeca_data = fmeca_data.dropna(thresh=8)
+    fmeca_data = fmeca_data.dropna(thresh=3)
 
     # Correct unnamed columns
     for sheet in df_event_tracker:
@@ -1057,12 +1061,10 @@ def get_final_dataframes_to_add_to_EventTracker(df_to_add, df_event_tracker, fme
                 index_closed = int(df_closed.loc[df_closed['ID'] == id_incident].index.values)
                 index_active = int(df_active.loc[df_active['ID'] == id_incident].index.values)
                 df_closed.loc[index_closed, 'Remediation'] = df_active.loc[index_active, 'Remediation']
-                df_closed.loc[index_closed, 'Fault'] = df_active.loc[index_active, 'Fault']
-                df_closed.loc[index_closed, 'Fault Component'] = df_active.loc[index_active, 'Fault Component']
-                df_closed.loc[index_closed, 'Failure Mode'] = df_active.loc[index_active, 'Failure Mode']
-                df_closed.loc[index_closed, 'Failure Mechanism'] = df_active.loc[index_active, 'Failure Mechanism']
-                df_closed.loc[index_closed, 'Category'] = df_active.loc[index_active, 'Category']
-                df_closed.loc[index_closed, 'Subcategory'] = df_active.loc[index_active, 'Subcategory']
+                df_closed.loc[index_closed, 'Type of Outage'] = df_active.loc[index_active, 'Type of Outage']
+                df_closed.loc[index_closed, 'Fault Category'] = df_active.loc[index_active, 'Fault Category']
+                df_closed.loc[index_closed, 'Root Cause'] = df_active.loc[index_active, 'Root Cause']
+                df_closed.loc[index_closed, 'Root Cause Analysis'] = df_active.loc[index_active, 'Root Cause Analysis']
                 df_closed.loc[index_closed, 'Resolution Category'] = df_active.loc[index_active, 'Resolution Category']
 
             final_df_to_add[sheet] = final_df_to_add[sheet][

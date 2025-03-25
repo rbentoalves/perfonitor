@@ -337,7 +337,7 @@ def energy_lost_excludable(production_irr_df, all_site_info, site, budget_pr, np
 
             relevant_parents_incidents = parents_incidents.loc[~(parents_incidents['Event End Time'] <= start_time) & ~(
                     parents_incidents['Event Start Time'] >= end_time) & ~(
-                    parents_incidents['Failure Mode'] == "Curtailment")]
+                    parents_incidents['Root Cause'] == "Curtailment")]
 
             if not relevant_parents_incidents.empty:
                 power_inverters_incident_excludable, power_inverters_incident = correct_overlapping_parents(component,
@@ -479,7 +479,7 @@ def active_hours_non_excludable(production_irr_df, curated_column, np_site_incid
                 relevant_parents_incidents = parents_incidents.loc[
                     ~(parents_incidents['Event End Time'] <= start_time) & ~(
                             parents_incidents['Event Start Time'] >= end_time) & ~(
-                            parents_incidents['Failure Mode'] == "Curtailment")]
+                            parents_incidents['Root Cause'] == "Curtailment")]
 
                 if not relevant_parents_incidents.empty:
                     try:

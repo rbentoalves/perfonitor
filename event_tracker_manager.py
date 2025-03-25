@@ -89,8 +89,10 @@ def main(site_list, pre_selection, geography):
             budget_pr, budget_export, all_site_info = data_acquisition.get_general_info_dataframes(general_info_path)
 
             # Correct unnamed columns
-            fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
-            fmeca_data = fmeca_data.dropna(thresh=8)
+            """fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
+            print(fmeca_data)
+            fmeca_data = fmeca_data.dropna(thresh=4)
+            print(fmeca_data)"""
 
             # </editor-fold>
 
@@ -296,6 +298,11 @@ def main(site_list, pre_selection, geography):
             component_data, tracker_data, fmeca_data, site_capacities, fleet_capacity, budget_irradiance, \
             budget_pr, budget_export, all_site_info = data_acquisition.get_general_info_dataframes(general_info_path)
 
+            """fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
+            print(fmeca_data)
+            fmeca_data = fmeca_data.dropna(thresh=4)
+            print(fmeca_data)"""
+
             # Get incidents' dataframes
             print("Reading incident and Event Tracker files and creating dataframes...")
             dfs_to_add, dfs_event_tracker, fmeca_data = data_acquisition.get_dataframes_to_add_to_EventTracker(
@@ -304,6 +311,8 @@ def main(site_list, pre_selection, geography):
                 fmeca_data,
                 component_data,
                 tracker_data)
+
+            print(fmeca_data)
 
             # Get final dfs to add
             print("Creating pre-treatment final dataframes of the Event tracker...")
@@ -317,7 +326,7 @@ def main(site_list, pre_selection, geography):
                 start_of_month = datetime.strptime(str(datetime.today().date() - dt.timedelta(days=31)) +
                                                    " 00:00:00",'%Y-%m-%d %H:%M:%S').replace(day=1)
                 last_month_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_month) &
-                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+                                                  ~(closed_events['Root Cause'] == "Curtailment")]
 
                 for index, row in last_month_ce.iterrows():
                     closed_events.loc[index, ["Duration (h)"]] = np.nan
@@ -333,7 +342,7 @@ def main(site_list, pre_selection, geography):
                 start_of_year = datetime.strptime(str(datetime.today().date()) + " 00:00:00",
                                                   '%Y-%m-%d %H:%M:%S').replace(day=1, month=1)
                 last_year_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_year) &
-                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+                                                  ~(closed_events['Root Cause'] == "Curtailment")]
 
                 for index, row in last_year_ce.iterrows():
                     closed_events.loc[index, ["Duration (h)"]] = np.nan
@@ -363,6 +372,7 @@ def main(site_list, pre_selection, geography):
 
             # Create FMECA aux tables - can be moved to file creation
             dict_fmeca_shapes = data_treatment.create_fmeca_dataframes_for_validation(fmeca_data)
+            print(dict_fmeca_shapes)
 
             # Calculate active hours and energy lost with correction for overlapping parents
             print("Creating final dataframes of the Event tracker...")
@@ -526,8 +536,10 @@ def main(site_list, pre_selection, geography):
             df_closed_eventtracker_trackers = df_all['Closed tracker incidents']
 
             # Correct unnamed columns
-            fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
-            fmeca_data = fmeca_data.dropna(thresh=8)
+            """fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
+            print(fmeca_data)
+            fmeca_data = fmeca_data.dropna(thresh=4)
+            print(fmeca_data)"""
 
             # Get final dfs to add
             print("Creating pre-treatment final dataframes of the Event tracker...")
@@ -550,7 +562,7 @@ def main(site_list, pre_selection, geography):
                 start_of_month = datetime.strptime(str(datetime.today().date() - dt.timedelta(days=31)) +
                                                    " 00:00:00",'%Y-%m-%d %H:%M:%S').replace(day=1)
                 last_month_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_month) &
-                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+                                                  ~(closed_events['Root Cause'] == "Curtailment")]
 
                 for index, row in last_month_ce.iterrows():
                     closed_events.loc[index, ["Duration (h)"]] = np.nan
@@ -566,7 +578,7 @@ def main(site_list, pre_selection, geography):
                 start_of_year = datetime.strptime(str(datetime.today().date()) + " 00:00:00",
                                                   '%Y-%m-%d %H:%M:%S').replace(day=1, month=1)
                 last_year_ce = closed_events.loc[(closed_events["Event End Time"] > start_of_year) &
-                                                  ~(closed_events['Failure Mode'] == "Curtailment")]
+                                                  ~(closed_events['Root Cause'] == "Curtailment")]
 
                 for index, row in last_year_ce.iterrows():
                     closed_events.loc[index, ["Duration (h)"]] = np.nan
@@ -751,8 +763,10 @@ def main(site_list, pre_selection, geography):
             df_closed_eventtracker_trackers = df_all['Closed tracker incidents']
 
             # Correct unnamed columns
-            fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
-            fmeca_data = fmeca_data.dropna(thresh=8)
+            """fmeca_data = fmeca_data.loc[:, ~fmeca_data.columns.str.contains('^Unnamed')]
+            print(fmeca_data)
+            fmeca_data = fmeca_data.dropna(thresh=4)
+            print(fmeca_data)"""
 
             # Get final dfs to add
             print("Creating pre-treatment final dataframes of the Event tracker...")

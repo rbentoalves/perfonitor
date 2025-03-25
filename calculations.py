@@ -913,10 +913,10 @@ def calculate_availability_period(site, incidents, tracker_incidents, component_
     for index, row in corrected_relevant_incidents.iterrows():
         capacity = row['Capacity Related Component']
         active_hours = row['Active Hours (h)']
-        failure_mode = row['Failure Mode']
+        root_cause = row['Root Cause']
         duration = row["Duration (h)"]
 
-        if not failure_mode == "Curtailment":
+        if not root_cause == "Curtailment":
             try:
                 if capacity == float(0) or math.isnan(active_hours) or type(active_hours) == str:
                     weighted_downtime_incident = raw_weighted_downtime_incident = 0
@@ -1318,7 +1318,7 @@ def create_curtailment_incidents(site, all_site_info, df_irradiance, df_power, i
 
     incidents_site = incidents.loc[incidents['Site Name'] == site].reset_index(None, drop=True)
     np_incidents_site = incidents_site.loc[(incidents_site['Component Status'] == "Not Producing") & ~(
-            incidents_site['Failure Mode'] == "Curtailment")]
+            incidents_site['Root Cause'] == "Curtailment")]
 
     # break
     # get incidents of curtailment for each site

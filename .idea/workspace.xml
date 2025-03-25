@@ -4,10 +4,14 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Coorected curtailment events and added dropna() that was missing">
+    <list default="true" id="5dd51701-a10a-47d2-a16e-ee71c7c09be5" name="Default Changelist" comment="Added MLF_DLF loss adjustment">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/calculations.py" beforeDir="false" afterPath="$PROJECT_DIR$/calculations.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/contractual.py" beforeDir="false" afterPath="$PROJECT_DIR$/contractual.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data_acquisition.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_acquisition.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data_treatment.py" beforeDir="false" afterPath="$PROJECT_DIR$/data_treatment.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/event_tracker_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/event_tracker_manager.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/file_creation.py" beforeDir="false" afterPath="$PROJECT_DIR$/file_creation.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -57,6 +61,7 @@
   </component>
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
+    &quot;Python.calculations.executor&quot;: &quot;Run&quot;,
     &quot;Python.data_acquisition.executor&quot;: &quot;Run&quot;,
     &quot;Python.mtmain.executor&quot;: &quot;Run&quot;,
     &quot;Python.streamlit_mtmain.executor&quot;: &quot;Run&quot;,
@@ -83,6 +88,28 @@
     </key>
   </component>
   <component name="RunManager" selected="Python.mtmain">
+    <configuration name="calculations" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="perfonitor" />
+      <option name="ENV_FILES" value="" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/calculations.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="data_acquisition" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="perfonitor" />
       <option name="ENV_FILES" value="" />
@@ -97,28 +124,6 @@
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/data_acquisition.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="false" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="file_creation" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="perfonitor" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/file_creation.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -196,10 +201,10 @@
     <recent_temporary>
       <list>
         <item itemvalue="Python.mtmain" />
+        <item itemvalue="Python.calculations" />
         <item itemvalue="Python.data_acquisition" />
         <item itemvalue="Python.streamlit_mtmain" />
         <item itemvalue="Python.monitools (1)" />
-        <item itemvalue="Python.file_creation" />
       </list>
     </recent_temporary>
   </component>
@@ -257,7 +262,15 @@
       <option name="project" value="LOCAL" />
       <updated>1741283211289</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Added MLF_DLF loss adjustment">
+      <option name="closed" value="true" />
+      <created>1741376006245</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1741376006246</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -283,6 +296,7 @@
     <MESSAGE value="Commented out a number of prints used for checking&#10;Added new column for Fault codes&#10;Corrected comments description build" />
     <MESSAGE value="Corrected regex that IDs columns that contain site name, to avoid cases where the name of a site is part of another's name and thus both get picked up" />
     <MESSAGE value="Coorected curtailment events and added dropna() that was missing" />
-    <option name="LAST_COMMIT_MESSAGE" value="Coorected curtailment events and added dropna() that was missing" />
+    <MESSAGE value="Added MLF_DLF loss adjustment" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added MLF_DLF loss adjustment" />
   </component>
 </project>
