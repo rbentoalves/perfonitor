@@ -911,6 +911,7 @@ def calculate_availability_period(site, incidents, tracker_incidents, component_
     corrected_relevant_tracker_inc['Contribution to downtime %'] = ""
 
     for index, row in corrected_relevant_incidents.iterrows():
+        print(row)
         capacity = row['Capacity Related Component']
         active_hours = row['Active Hours (h)']
         root_cause = row['Root Cause']
@@ -1425,9 +1426,8 @@ def get_power_irradiance_site_curtailment(site, power_site, irradiance_site_cura
     power_irradiance_site = power_irradiance_site.loc[
         power_irradiance_site[irradiance_column] > irradiance_threshold]
 
-    mlf_dlf_info_actual = mlf_dlf_info.loc[mlf_dlf_info["MLF/DLF Type"] == "Actual"]
-
     if not mlf_dlf_info.empty:
+        mlf_dlf_info_actual = mlf_dlf_info.loc[mlf_dlf_info["MLF/DLF Type"] == "Actual"]
         power_irradiance_site["MLF_DLF"] = [mlf_dlf_info_actual.loc[site,
         datetime.strptime(str(timestamp.date())[:-2] + "01 00:00:00",'%Y-%m-%d %H:%M:%S')]
                                             for timestamp in power_irradiance_site['Timestamp']]

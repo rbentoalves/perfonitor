@@ -1214,9 +1214,9 @@ def match_df_to_event_tracker(df, component_data, fmeca_data, active: bool = Fal
                                   'Component Status', 'Event Start Time', 'Event End Time', 'Duration (h)',
                                   'Active Hours (h)', 'Energy Lost (MWh)', 'Comments', 'Remediation', 'Fault Code',
                                   'Work Order', 'Type of Outage', 'Fault Category',	'Root Cause', 'Root Cause Analysis',
-                                  'Resolution Category', 'Excludable', 'Exclusion Start Time', 'Exclusion End Time',
-                                  'Excludable Category','Exclusion Rationale', 'Incident Status',
-                                  'Categorization Status']
+                                  'Resolution Category', 'Effective Capacity Affected',
+                                  'Excludable', 'Exclusion Start Time', 'Exclusion End Time', 'Excludable Category',
+                                  'Exclusion Rationale', 'Incident Status', 'Categorization Status']
     if not df.empty:
         if simple_match is False:
             curtailment_fmeca = fmeca_data.loc[fmeca_data['Root Cause'] == 'Curtailment']
