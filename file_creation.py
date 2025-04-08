@@ -702,7 +702,7 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
                     ws_sheet.write(header_cell, header, format_header)
                     ws_sheet.write_column(data_cell, data, format_string_unlocked)
                     ws_sheet.set_column(all_column, width[i + 1], unlocked)
-                    ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                    ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                              {'validate': 'list', 'source': ['Repair',
                                                                              'Reset',
                                                                              'Part Replacement',
@@ -712,7 +712,7 @@ def create_dmr_file(final_df_to_add, dest_file, performance_fleet_period, site_c
                     ws_sheet.write(header_cell, header, format_header)
                     ws_sheet.write_column(data_cell, data, format_string_unlocked)
                     ws_sheet.set_column(all_column, width[i + 1], unlocked)
-                    # ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                    # ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                     #  {'validate': 'list',
                     #   'source': ['OMC', 'Force Majeure', 'Curtailment', "N/A"]})
 
@@ -1905,6 +1905,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                 data_cell = column_letter + '2'
                 all_column = column_letter + ':' + column_letter
                 data = df[header].fillna("")
+                print(data_cell)
 
                 if header == 'ID':
                     ws_sheet.write(header_cell, header, format_header)
@@ -1936,7 +1937,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                         ws_sheet.write(header_cell, header, format_header)
                         ws_sheet.write_column(data_cell, data, format_string_unlocked)
                         ws_sheet.set_column(all_column, width[i + 1], unlocked)
-                        ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                        ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                                  {'validate': 'list', 'source': ['Repair',
                                                                                  'Reset',
                                                                                  'Part Replacement',
@@ -1946,7 +1947,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                         ws_sheet.write(header_cell, header, format_header)
                         ws_sheet.write_column(data_cell, data, format_string_unlocked)
                         ws_sheet.set_column(all_column, width[i + 1], unlocked)
-                        # ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                        # ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                         #  {'validate': 'list',
                         #   'source': ['OMC', 'Force Majeure', 'Curtailment', "N/A"]})
 
@@ -1964,21 +1965,21 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
 
                         # Add Data validation
                         if header == 'Type of Outage':
-                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                                      {'validate': 'list',
                                                       'source': '=FMECA_AUX!' + str(dict_fmeca_table_range['Type_of_Outage'])})
                             fault_cell = data_cell
                             print(fault_cell)
 
                         elif header == 'Fault Category':
-                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                                      {'validate': 'list',
                                                       'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
                                                                 fault_cell + ', " ", "_"), "-","_"))'})
                             fcomp_cell = data_cell
 
                         elif header == 'Root Cause':
-                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                                      {'validate': 'list',
                                                       'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
                                                                 fault_cell + '&"_"&' +
@@ -1986,7 +1987,7 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                             fmode_cell = data_cell
 
                         elif header == 'Root Cause Analysis':
-                            ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                            ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                                      {'validate': 'list',
                                                       'source': '=INDIRECT(SUBSTITUTE(SUBSTITUTE(' +
                                                                 fault_cell + '&"_"&' +
@@ -2000,14 +2001,14 @@ def create_event_tracker_file_all(final_df_to_add, dest_file, performance_fleet_
                     ws_sheet.write(header_cell, header, format_header)
                     ws_sheet.write_column(data_cell, data, format_string_unlocked)
                     ws_sheet.set_column(all_column, width[i + 1], unlocked)
-                    ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                    ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                              {'validate': 'list', 'source': ['Open', 'Closed']})
 
                 elif header == "Categorization Status":
                     ws_sheet.write(header_cell, header, format_header)
                     ws_sheet.write_column(data_cell, data, format_string_unlocked)
                     ws_sheet.set_column(all_column, width[i + 1], unlocked)
-                    ws_sheet.data_validation(data_cell + ":" + data_cell[0] + str(1 + n_rows),
+                    ws_sheet.data_validation(data_cell + ":" + data_cell[0:len(data_cell)-1] + str(1 + n_rows),
                                              {'validate': 'list', 'source': ['Pending', 'Completed']})
 
                 elif header == 'Remediation' or header == 'Comments':
